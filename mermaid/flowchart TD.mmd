@@ -1,0 +1,55 @@
+flowchart TD
+    %% Main Instance Group
+    subgraph AWS_EC2_Main_Instance [Main Instance]
+        daemon[Daemon Process]
+        scheduler1[Daily Scheduler]
+        scheduler2[Hourly Scheduler]
+        scheduler3[Minute Scheduler]
+        fastApiReactUI[FastAPI & React UI]
+    end
+
+    %% Worker Instances Group
+    subgraph AWS_EC2_Worker_Instances [Worker Instances]
+        worker1[Worker Instance 1]
+        worker2[Worker Instance 2]
+        worker3[Worker Instance 3]
+        worker4[Worker Instance 4]
+        worker5[Worker Instance 5]
+    end
+
+    %% AWS Services
+    sqs[AWS SQS Queue]
+    redis[AWS Redis]
+
+    %% External Services
+    exchangeAPI[Exchange APIs]
+
+    %% Connections for Main Instance
+    daemon --> scheduler1
+    daemon --> scheduler2
+    daemon --> scheduler3
+    scheduler1 --> redis
+    scheduler2 --> redis
+    scheduler3 --> sqs
+    fastApiReactUI --> redis
+    fastApiReactUI --> daemon
+
+    %% Connections for Worker Instances
+    worker1 --> sqs
+    worker2 --> sqs
+    worker3 --> sqs
+    worker4 --> sqs
+    worker5 --> sqs
+    worker1 --> redis
+    worker2 --> redis
+    worker3 --> redis
+    worker4 --> redis
+    worker5 --> redis
+
+    %% External API Connections
+    daemon --> exchangeAPI
+    worker1 --> exchangeAPI
+    worker2 --> exchangeAPI
+    worker3 --> exchangeAPI
+    worker4 --> exchangeAPI
+    worker5 --> exchangeAPI

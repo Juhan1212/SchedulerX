@@ -132,7 +132,7 @@ async def renew_tickers():
     conn = sqlite3.connect("tickers.db")
     cursor = conn.cursor()
     
-    dep_with_pos_tickers = await exMgr.exchanges["upbit"].get_depo_with_pos_tickers()
+    dep_with_pos_tickers = await UpbitExchange().get_depo_with_pos_tickers()
     
     cursor.executemany(
         "UPDATE tickers SET dw_pos_yn = ? WHERE exchange = ? AND ticker = ?",

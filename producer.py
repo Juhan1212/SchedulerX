@@ -1,8 +1,10 @@
+import time
 import asyncio
 import sqlite3
 import logging
 from celery import Celery, group
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from pytz import timezone  # 추가
 from app.core.ex_manager import exMgr
 from app.exchanges.bybit import BybitExchange
 from app.exchanges.upbit import UpbitExchange
@@ -207,8 +209,14 @@ if __name__ == "__main__":
     renew_tickers_task() 
     
     # 스케줄러 설정
-    scheduler = BlockingScheduler(timezone="Asia/Seoul")
-    scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
+    kst = timezone('Asia/Seoul')  # 한국 시간대 설정
+    scheduler = BackgroundScheduler(timezone=kst)
+    # scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
     scheduler.add_job(schedule_workers_task, 'cron', minute='*/1')  # 매분마다 작업 스케줄링
     scheduler.start()
     
+    try:
+        while True:
+            time.sleep(1)  # 대기 시간을 추가하여 CPU 사용량 줄이기
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()

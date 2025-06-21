@@ -210,7 +210,7 @@ if __name__ == "__main__":
     renew_tickers_task() 
     
     # 스케줄러 설정
-    scheduler = BlockingScheduler('Asia/Seoul')
+    scheduler = BlockingScheduler(timezone="Asia/Seoul")
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
     scheduler.add_job(schedule_workers_task, 'cron', minute='*/1')  # 매분마다 작업 스케줄링
     scheduler.start()

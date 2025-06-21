@@ -1,0 +1,27 @@
+version: 1
+disable_existing_loggers: false
+formatters:
+  standard:
+    format: "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s"
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: standard
+    level: DEBUG
+  file:
+    class: logging.FileHandler
+    formatter: standard
+    filename: app.log
+    level: DEBUG
+loggers:
+  app: # 기본 로거
+    level: INFO
+    handlers: [console, file]
+    propagate: no
+  app.specific_module: # 특정 파일의 로거
+    level: DEBUG
+    handlers: [console, file]
+    propagate: no
+root:
+  level: WARNING
+  handlers: [console]

@@ -14,6 +14,15 @@ node_modules/
 # Environment variables
 *.env
 
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Lock files (optional if using poetry or uv)
+poetry.lock
+Pipfile.lock
+
 # Python
 __pycache__/
 *.py[cod]
@@ -25,3 +34,10 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+.pytest_cache
+
+*.db
+*.lock
+
+tests/

@@ -143,7 +143,7 @@ async def renew_tickers():
     conn.close()
     
 @app.task
-def calculate_orderbook_exrate(tickers: list[str], seed: int):
+def calculate_orderbook_exrate_task(tickers: list[str], seed: int):
     """
     worker가 tickers를 받아서 환율을 계산하는 작업입니다.
     """
@@ -155,6 +155,7 @@ def renew_tickers_task():
     """
     asyncio.run(renew_tickers())
     logger.info("티커 정보가 갱신되었습니다.")
+
 
 def schedule_workers_task():
     """
@@ -168,16 +169,20 @@ def schedule_workers_task():
         logger.info("공통 진입가능 티커가 없습니다.")
         return
     
-    batch_size = 10
-    tasks = []
+    # batch_size = 10
+    # tasks = []
+    # seed = get_seed_money()
+    # for i in range(0, len(tickers), batch_size):
+    #     batch = tickers[i:i + batch_size]
+    #     tasks.append(calculate_orderbook_exrate.s(batch, seed))
+    # logger.info(f"스케줄링된 작업 수: {len(tasks)}")
+    # group(tasks).apply_async()
+    # logger.info("작업이 SQS에 전달되었습니다.")
     seed = get_seed_money()
-    for i in range(0, len(tickers), batch_size):
-        batch = tickers[i:i + batch_size]
-        tasks.append(calculate_orderbook_exrate.s(batch, seed))
-    logger.info(f"스케줄링된 작업 수: {len(tasks)}")
-    group(tasks).apply_async()
-    
-    
+    logger.info(seed)
+    calculate_orderbook_exrate_task.apply_async(args=(['BTC', 'ETH'], seed))
+
+
 def get_seed_money():
     """Retrieve the first row from the seed table."""
     conn = sqlite3.connect("tickers.db")

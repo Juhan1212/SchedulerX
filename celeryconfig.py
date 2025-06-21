@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from kombu import Queue
 
 load_dotenv()
 
@@ -14,7 +13,9 @@ broker_transport_options = {
 }
 task_default_queue = 'testQueue'
 task_queues = {
-    Queue('testQueue'),
+    'testQueue': {
+        'url': f"{os.getenv('AWS_SQS_URL')}",
+    },
 }
 
 worker_prefetch_multiplier = 10  # 작업자가 한 번에 최대 10개의 작업 가져오기

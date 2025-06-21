@@ -169,18 +169,15 @@ def schedule_workers_task():
         logger.info("공통 진입가능 티커가 없습니다.")
         return
     
-    # batch_size = 10
-    # tasks = []
-    # seed = get_seed_money()
-    # for i in range(0, len(tickers), batch_size):
-    #     batch = tickers[i:i + batch_size]
-    #     tasks.append(calculate_orderbook_exrate.s(batch, seed))
-    # logger.info(f"스케줄링된 작업 수: {len(tasks)}")
-    # group(tasks).apply_async()
-    # logger.info("작업이 SQS에 전달되었습니다.")
+    batch_size = 10
+    tasks = []
     seed = get_seed_money()
-    logger.info(seed)
-    calculate_orderbook_exrate_task.apply_async(args=(['BTC', 'ETH'], seed))
+    for i in range(0, len(tickers), batch_size):
+        batch = tickers[i:i + batch_size]
+        tasks.append(calculate_orderbook_exrate_task.s(batch, seed))
+    logger.info(f"스케줄링된 작업 수: {len(tasks)}")
+    group(tasks).apply_async()
+    logger.info("작업이 SQS에 전달되었습니다.")
 
 
 def get_seed_money():

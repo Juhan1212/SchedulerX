@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import axios from "axios";
+import React, { useState, useEffect } from "react";
 import "./Signup.css";
 import CryptoJS from "crypto-js";
+import { useNavigate } from "react-router-dom";
 
 class LoginError extends Error {
   code?: string;
@@ -20,6 +22,16 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState<LoginError | null>(null);
   const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    axios
+      .get("/login/auth", { withCredentials: true })
+      .then(() => {
+        navigate("/", { replace: true });
+      })
+      .catch(() => {});
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -41,19 +53,17 @@ const Login: React.FC = () => {
           email: form.email,
           password_hash: encryptedPassword,
         }),
+        credentials: "include",
       });
       if (!response.ok) {
         const data = await response.json();
         setError(
-          new LoginError(
-            data.message || "로그인 실패",
-            data.code,
-            data.field
-          )
+          new LoginError(data.message || "로그인 실패", data.code, data.field)
         );
         return;
       }
       setSuccess(true);
+      navigate("/", { replace: true }); // 로그인 성공 시 홈으로 리다이렉트
     } catch (err) {
       if (err instanceof LoginError) {
         setError(err);

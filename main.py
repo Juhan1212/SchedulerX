@@ -3,6 +3,7 @@ import logging.config
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
+from fastapi.responses import FileResponse
 import yaml
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -75,6 +76,14 @@ for filename in os.listdir(ROUTERS_DIR):
         MODULE_NAME = f"{ROUTERS_DIR}.{filename[:-3]}".replace("/", ".")
         module = importlib.import_module(MODULE_NAME)
         app.include_router(module.router)
+        
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    """
+    모든 경로에 대해 React 애플리케이션의 index.html 파일을 반환합니다.
+    FastAPI는 먼저 등록된 라우트가 우선 적용되기 때문에 해당 라우트는 마지막에 정의되어야 합니다.
+    """
+    return FileResponse("frontend/dist/index.html")
        
 if __name__ == "__main__":
     import uvicorn

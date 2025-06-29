@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 from contextlib import asynccontextmanager
 import yaml
-from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 # YAML 파일 경로
 LOGGING_CONFIG_PATH = Path(__file__).resolve().parent / "logging_config.yaml"
@@ -33,7 +33,7 @@ def setup_logging():
 setup_logging()
 
 # 로거 생성
-logger = logging.getLogger("app")
+logger = logging.getLogger(__name__)
 
 # Lifespan 이벤트 핸들러 정의
 @asynccontextmanager
@@ -63,9 +63,13 @@ async def lifespan(_app: FastAPI):
 # FastAPI 애플리케이션 생성
 app = FastAPI(lifespan=lifespan)
 
+# 정적 파일 서빙 (React build 결과물)
+app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
+app.mount("/frontend", StaticFiles(directory="frontend/dist"), name="frontend_root")
+
 # API 라우터 등록
-# api/endpoints 디렉토리에서 모든 라우터 파일을 자동으로 로드
-ROUTERS_DIR = "app/api/endpoints"
+# routers 디렉토리에서 모든 라우터 파일을 자동으로 로드
+ROUTERS_DIR = "backend/routers"
 for filename in os.listdir(ROUTERS_DIR):
     if filename.endswith(".py") and filename != "__init__.py":
         MODULE_NAME = f"{ROUTERS_DIR}.{filename[:-3]}".replace("/", ".")
@@ -75,4 +79,3 @@ for filename in os.listdir(ROUTERS_DIR):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    

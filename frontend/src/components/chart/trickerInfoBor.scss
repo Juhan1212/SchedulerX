@@ -1,0 +1,168 @@
+@use "../../assets/styles/abstracts/mixins" as *;
+@use "../../assets/styles/abstracts/functions" as *;
+
+.info-price {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  @include apply-color("primary", "layer3", background-color);
+  border-radius: 10px 10px 0 0;
+  height: 72px;
+  padding: 0 12px;
+
+  @include responsive("lg") {
+    flex-direction: column;
+    height: 100%;
+    align-items: flex-start;
+    padding: 0px 12px 12px 12px;
+    margin-top: 50px;
+    gap: 6px;
+  }
+}
+
+.crypto-select-box {
+  padding-right: 8px;
+  .select-input {
+    padding: 16px;
+    @include responsive("sm") {
+      padding: 12px;
+    }
+  }
+  .select-value {
+    width: 188px;
+    gap: 12px;
+    @include responsive("sm") {
+      width: 160px;
+    }
+  }
+  .select-arrow {
+    @include apply-color("common", "common-white");
+  }
+  .option-text {
+    @include apply-font("eng", "h3");
+    @include apply-color("common", "common-white");
+    @include responsive("sm") {
+      @include apply-font("eng", "h4");
+    }
+  }
+  .option-icon {
+    width: 32px;
+    height: 32px;
+    @include responsive("sm") {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.select-options.crypto-options {
+  @include apply-color("primary", "dark", background-color);
+  .crypto-option {
+    padding: 8px 12px;
+    gap: 6px;
+    align-items: center;
+    &:hover {
+      @include apply-color("primary", "inactive", background-color);
+    }
+    &.selected {
+      @include apply-color("primary", "main", background-color);
+    }
+    .option-text {
+      @include apply-font("eng", "body1-b");
+    }
+    img {
+      width: 18px !important;
+      height: 18px !important;
+    }
+  }
+}
+.border-bar {
+  width: 1px;
+  height: 48px;
+  @include apply-color("primary", "inactive", background-color);
+  @include responsive("lg") {
+    display: none;
+  }
+}
+.price-container {
+  display: flex;
+  align-items: center;
+  padding-left: 24px;
+  gap: 24px;
+  @include responsive("md") {
+    padding-left: 16px;
+    gap: 36px;
+  }
+  @include responsive("sm") {
+    padding-left: 12px;
+    gap: 12px;
+  }
+}
+
+.price-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 6px;
+  .info-label {
+    @include apply-font("eng", "label-md");
+    @include apply-color("primary", "inactive");
+  }
+
+  .info-value {
+    @include apply-font("mono", "value1");
+    @include apply-color("common", "common-white");
+  }
+  @include responsive("sm") {
+    gap: 2px;
+    .info-label {
+      @include apply-font("eng", "label-sm");
+    }
+
+    .info-value {
+      @include apply-font("mono", "value2");
+    }
+  }
+}
+.change-status-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  @include responsive("sm") {
+    gap: 4px;
+  }
+}
+
+.status-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  .status-label {
+    @include apply-font("eng", "label-sm");
+    @include apply-color("primary", "inactive");
+  }
+  .status-value {
+    @include apply-font("mono", "value1");
+    &.neutral {
+      @include apply-color("common", "common-white");
+    }
+    &.positive {
+      @include apply-color("utility", "up");
+    }
+    &.negative {
+      @include apply-color("utility", "down");
+    }
+  }
+  @include responsive("sm") {
+    gap: 2px;
+
+    .status-label {
+      font-size: 10px;
+    }
+    .status-value {
+      @include apply-font("mono", "value2");
+      font-size: 10px;
+    }
+  }
+}

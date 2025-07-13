@@ -1,0 +1,311 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/functions' as *;
+
+.page-header.my-connect {
+  padding-bottom: 24px;
+  @include responsive('sm') {
+    padding-bottom: 8px;
+  }
+}
+
+.page-header-subtitle.my-connect {
+  padding-bottom: 54px;
+  margin: 0 auto;
+  @include responsive('sm') {
+    padding-bottom: 12px;
+  }
+}
+
+.select-exchange-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 36px;
+  width: 100%;
+}
+
+.exchange-list-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 24px;
+  padding: 36px 20px;
+  width: 100%;
+  &.disconnected {
+    border-radius: 10px;
+    @include apply-color('primary', 'layer1', background-color);
+  }
+  @include responsive('md') {
+    align-items: flex-start;
+    gap: 20px;
+  }
+  @include responsive('sm') {
+    gap: 20px;
+  }
+}
+
+.exchange-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 100%;
+  @include responsive('md') {
+    li {
+      width: 100%;
+    }
+    flex-direction: column;
+  }
+  @include responsive('sm') {
+    li {
+      width: 100%;
+    }
+    gap: 12px;
+  }
+}
+
+.exchange-list-title {
+  @include apply-color('common', 'common-white');
+  @include apply-font('kor', 'subhead1');
+  @include responsive('sm') {
+    @include apply-font('kor', 'subhead2');
+  }
+}
+
+.exchange-list-item {
+  width: 230px;
+  height: 180px;
+  border-radius: 10px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  @include apply-color('common', 'common-white');
+  @include apply-font('eng', 'subhead1');
+  img {
+    width: 60px;
+    height: 60px;
+  }
+  @include responsive('md') {
+    width: 100%;
+    height: 96px;
+    flex-direction: row;
+    img {
+      width: 48px;
+      height: 48px;
+    }
+  }
+  @include responsive('sm') {
+    width: 100%;
+    height: 72px;
+    flex-direction: row;
+    img {
+      width: 36px;
+      height: 36px;
+    }
+  }
+  &.connected {
+    @include apply-color('primary', 'dark', background-color);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      background-color: get-color('primary', 'layer3');
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 1;
+      pointer-events: none;
+      border: 1px solid get-color('primary', 'main');
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      @include apply-color('primary', 'main', background-color);
+      mask-image: url('../../icons/trash.svg');
+      mask-size: contain;
+      mask-repeat: no-repeat;
+      mask-position: center;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover {
+      &::before {
+        opacity: 0.9;
+      }
+
+      &::after {
+        opacity: 1;
+      }
+    }
+  }
+
+  &.disconnected {
+    border: 1px solid get-color('primary', 'inactive');
+    .select-icon {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      @include apply-color('primary', 'inactive');
+    }
+    &:hover {
+      border: 1px solid get-color('primary', 'main');
+      .select-icon {
+        @include apply-color('primary', 'main');
+      }
+    }
+    &.not-ready {
+      opacity: 0.4;
+      pointer-events: none;
+      position: relative;
+
+      .overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        padding: 8px 15px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        z-index: 2;
+
+        @include responsive('sm') {
+          font-size: 0.875rem;
+          padding: 4px 15px;
+        }
+      }
+    }
+    &.selected {
+      border: 1px solid get-color('primary', 'main');
+      .select-icon {
+        @include apply-color('primary', 'main');
+      }
+    }
+    @include responsive('md') {
+      padding: 0 36px;
+      justify-content: flex-start;
+      .select-icon {
+        top: 50%;
+        transform: translateY(-50%);
+        right: 36px;
+        svg {
+          width: 36px;
+          height: 36px;
+        }
+      }
+    }
+  }
+}
+
+.connect-btn {
+  @include button-base('lg', 'primary', 'main', 'dark');
+  @include apply-color('common', 'common-white');
+  width: 564px;
+  margin-top: 24px;
+  @include responsive('md') {
+    width: 100%;
+  }
+  @include responsive('sm') {
+    @include button-resize('md');
+  }
+}
+
+.section-container.add-key-container {
+  position: relative;
+}
+
+.normal-label.exchange-label {
+  display: flex;
+  align-items: center;
+  span {
+    @include apply-font('eng', 'subhead2');
+    padding: 0 4px;
+  }
+
+  img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.page-back-btn {
+  position: absolute;
+  padding: 0;
+  @include apply-color('common', 'common-white');
+  left: 0;
+  top: -154px;
+  svg {
+    width: 36px;
+    height: 36px;
+  }
+  @include responsive('xl') {
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+    left: 20px;
+  }
+  @include responsive('md') {
+    top: -129px;
+  }
+  @include responsive('sm') {
+    top: -72px;
+  }
+}
+
+.input-group.add-key {
+  position: relative;
+}
+
+.normal-input.success-connect {
+  @include apply-color('primary', 'light', background-color);
+}
+
+.input-success-icon {
+  @include apply-color('primary', 'dark');
+  width: 24px;
+  height: 24px;
+  bottom: 10px;
+  right: 24px;
+  position: absolute;
+}
+
+.add-message {
+  position: absolute;
+  bottom: 108px;
+  @include apply-font('kor', 'label-md');
+  &.add-key-pending {
+    @include apply-color('primary', 'light');
+  }
+  &.add-key-success {
+    @include apply-color('primary', 'main');
+  }
+  &.add-key-failure {
+    @include apply-color('error', 'main');
+  }
+  @include responsive('md') {
+    bottom: 102px;
+  }
+  @include responsive('sm') {
+    bottom: 94px;
+  }
+}

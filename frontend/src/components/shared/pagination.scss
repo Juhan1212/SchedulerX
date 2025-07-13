@@ -1,0 +1,89 @@
+@use '../../assets/styles/abstracts/mixins' as *;
+@use '../../assets/styles/abstracts/functions' as *;
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  @include responsive('sm') {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .pagination-first-last-arrow,
+  .pagination-arrow {
+    background: none;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: #f9f9f9;
+    }
+    @include responsive('sm') {
+      max-width: 32px;
+    }
+  }
+
+  .pagination-pages {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: space-around;
+
+    .pagination-item {
+      @include apply-font('eng', 'subhead2');
+      @include apply-color('common', 'common-white');
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      border-radius: 4px;
+
+      &:hover:not(.active) {
+        @include apply-color('primary', 'main');
+      }
+
+      &.active {
+        @include apply-color('primary', 'main', background-color);
+      }
+    }
+  }
+}
+
+.btns-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  @include responsive('sm') {
+    gap: 0;
+  }
+}
+
+.pagination-arrow-icon {
+  @include apply-color('common', 'common-white');
+  &.chevrons {
+    width: 18px;
+    height: 18px;
+  }
+
+  &.cheveron {
+    width: 16px;
+    height: 16px;
+  }
+}

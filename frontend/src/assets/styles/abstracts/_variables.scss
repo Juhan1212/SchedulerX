@@ -1,0 +1,400 @@
+$font: (
+  kor: (
+    h1: (
+      font-family: Pretendard,
+      font-size: 48px,
+      font-weight: 800,
+      line-height: 1.1,
+    ),
+    h2: (
+      font-family: Pretendard,
+      font-size: 28px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    h2-b: (
+      font-family: Pretendard,
+      font-size: 28px,
+      font-weight: 800,
+      line-height: 1.3,
+    ),
+    h3: (
+      font-family: Pretendard,
+      font-size: 24px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    h4: (
+      font-family: Pretendard,
+      font-size: 20px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    subhead1: (
+      font-family: Pretendard,
+      font-size: 18px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    subhead2: (
+      font-family: Pretendard,
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    body1: (
+      font-family: Pretendard,
+      font-size: 18px,
+      font-weight: 400,
+      line-height: 1.3,
+    ),
+    body2: (
+      font-family: Pretendard,
+      font-size: 16px,
+      font-weight: 400,
+      line-height: 1.3,
+    ),
+    body3: (
+      font-family: Pretendard,
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    body4: (
+      font-family: Pretendard,
+      font-size: 12px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    button-lg: (
+      font-family: Pretendard,
+      font-size: 18px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    button-md: (
+      font-family: Pretendard,
+      font-size: 16px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    button-sm: (
+      font-family: Pretendard,
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    label-lg: (
+      font-family: Pretendard,
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-md: (
+      font-family: Pretendard,
+      font-size: 14px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-sm: (
+      font-family: Pretendard,
+      font-size: 12px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    error: (
+      font-family: Pretendard,
+      font-size: 10px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    title: (
+      font-family: Poppins,
+      font-size: 36px,
+      font-weight: 700,
+      line-height: 1.1,
+    ),
+  ),
+  eng: (
+    h1: (
+      font-family: Poppins,
+      font-size: 48px,
+      font-weight: 700,
+      line-height: 1.1,
+    ),
+    h2: (
+      font-family: Poppins,
+      font-size: 28px,
+      font-weight: 700,
+      line-height: 1.2,
+    ),
+    h3: (
+      font-family: Poppins,
+      font-size: 24px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    h4: (
+      font-family: Poppins,
+      font-size: 20px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    subhead1: (
+      font-family: Poppins,
+      font-size: 18px,
+      font-weight: 700,
+      line-height: 1.3,
+    ),
+    subhead2: (
+      font-family: Poppins,
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    body1: (
+      font-family: Poppins,
+      font-size: 16px,
+      font-weight: 400,
+      line-height: 1.3,
+    ),
+    body1-b: (
+      font-family: Poppins,
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    body2: (
+      font-family: Poppins,
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    body3: (
+      font-family: Poppins,
+      font-size: 12px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    body3-b: (
+      font-family: Poppins,
+      font-size: 12px,
+      font-weight: 700,
+      line-height: 1.3,
+    ),
+    value1: (
+      font-family: Poppins,
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    value2: (
+      font-family: Poppins,
+      font-size: 12px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-lg: (
+      font-family: Poppins,
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-md: (
+      font-family: Poppins,
+      font-size: 14px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-sm: (
+      font-family: Poppins,
+      font-size: 12px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    title: (
+      font-family: Poppins,
+      font-size: 28px,
+      font-weight: 700,
+      line-height: 1.1,
+    ),
+  ),
+  mono: (
+    subhead1: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 18px,
+      font-weight: 700,
+      line-height: 1.3,
+    ),
+    subhead2: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    body1: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 16px,
+      font-weight: 400,
+      line-height: 1.3,
+    ),
+    body1-b: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    body2: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    body3: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 12px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    body3-b: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 12px,
+      font-weight: 700,
+      line-height: 1.3,
+    ),
+    value1: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 14px,
+      font-weight: 500,
+      line-height: 1.3,
+    ),
+    value2: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 12px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-lg: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 16px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-md: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 14px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    label-sm: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 12px,
+      font-weight: 600,
+      line-height: 1.3,
+    ),
+    title: (
+      font-family: (
+        'Roboto Mono',
+        monospace,
+      ),
+      font-size: 32px,
+      font-weight: 700,
+      line-height: 1.1,
+    ),
+  ),
+);
+
+$palette: (
+  primary: (
+    main: #7f45e2,
+    lighter: #f1eaff,
+    light: #ccb8f4,
+    inactive: #6f5b8f,
+    dark: #2f1f4a,
+    layer1: #241e2e,
+    layer2: #1e1a24,
+    layer3: #131215,
+  ),
+  secondary: (
+    main: #00b6b3,
+    light: #73d6d4,
+    dark: #006765,
+  ),
+  error: (
+    main: #ff3131,
+    light: #ff8a8a,
+    dark: #570000,
+  ),
+  common: (
+    common-white: #ffffff,
+    common-grey: #5f5d63,
+  ),
+  utility: (
+    up: #00ce84,
+    down: #fc2861,
+  ),
+);
+
+$breakpoints: (
+  xl: 1023px,
+  lg: 800px,
+  md: 640px,
+  sm: 440px,
+);
+
+$button-sizes: (
+  'lg': (
+    'font': 'button-lg',
+    'height': 54px,
+    'padding': 16px 24px,
+    'gap': 12px,
+  ),
+  'md': (
+    'font': 'button-md',
+    'height': 48px,
+    'padding': 12px 20px,
+    'gap': 10px,
+  ),
+  'sm': (
+    'font': 'button-sm',
+    'height': 36px,
+    'padding': 8px 16px,
+    'gap': 8px,
+  ),
+);

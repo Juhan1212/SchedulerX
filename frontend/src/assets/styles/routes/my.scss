@@ -1,0 +1,106 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/functions' as *;
+
+.menu-links-wrapper {
+  margin-bottom: 36px;
+  @include responsive('lg') {
+    margin: 0 20px 36px;
+  }
+  @include responsive('sm') {
+    margin: 0 12px 36px;
+  }
+}
+
+.menu-links {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  @include responsive('md') {
+    grid-template-columns: 1fr;
+  }
+  @include responsive('sm') {
+    gap: 12px;
+  }
+}
+
+.menu-link-btn {
+  @include apply-color('primary', 'layer1', background-color);
+  box-shadow: 0 4px 4px 10pxrgba (0, 0, 0, 0.1);
+  height: 160px;
+  border-radius: 10px;
+  padding: 32px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  @include responsive('lg') {
+    padding: 32px 36px;
+  }
+  @include responsive('md') {
+    padding: 32px 46px;
+  }
+  @include responsive('sm') {
+    height: 120px;
+  }
+}
+
+.img-password {
+  width: 69px;
+  height: 96px;
+  @include responsive('sm') {
+    width: 58px;
+    height: 80px;
+  }
+}
+
+.img-connect {
+  width: 90px;
+  height: 90px;
+  @include responsive('sm') {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+.img-friends {
+  width: 92px;
+  height: 74px;
+  @include responsive('sm') {
+    width: 80px;
+    height: 64px;
+  }
+}
+
+.img-settings {
+  width: 80px;
+  height: 90px;
+  @include responsive('sm') {
+    width: 68px;
+    height: 72px;
+  }
+}
+
+.menu-link {
+  @include apply-font('kor', 'subhead1');
+  @include apply-color('common', 'common-white');
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  svg {
+    width: 37px;
+    height: 8px;
+  }
+  @include responsive('sm') {
+    @include apply-font('kor', 'label-lg');
+  }
+}
+
+.my-logout-btn {
+  @include apply-font('kor', 'subhead2');
+  @include apply-color('common', 'common-white');
+  text-decoration: underline;
+  width: fit-content;
+  display: block;
+  margin: 0 auto;
+}

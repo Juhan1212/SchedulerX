@@ -75,7 +75,7 @@ for filename in os.listdir(ROUTERS_DIR):
     if filename.endswith(".py") and filename != "__init__.py":
         MODULE_NAME = f"{ROUTERS_DIR}.{filename[:-3]}".replace("/", ".")
         module = importlib.import_module(MODULE_NAME)
-        app.include_router(module.router)
+        app.include_router(module.router, prefix="/api")
         
 @app.get("/{full_path:path}")
 async def catch_all(full_path: str):

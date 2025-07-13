@@ -36,7 +36,7 @@ class BybitExchange(Exchange):
         return cls(api_key, secret_key)
 
     @classmethod
-    async def get_tickers(cls):
+    async def get_tickers(cls) -> list[str]:
         """
         Bybit에서 USDT 티커 목록을 가져옵니다.
 
@@ -118,4 +118,51 @@ class BybitExchange(Exchange):
             raise
         except Exception as e:
             logger.error(f"Unexpected error while fetching orderbook for {ticker}: {e}")
+            raise
+        
+    @classmethod
+    async def get_ticker_candles(cls, ticker: str, interval: str = "1", count: int = 200):
+        """
+        Bybit에서 특정 티커의 캔들 데이터를 가져옵니다.
+
+        Args:
+            ticker (str): 티커 이름 (예: 'BTC')
+            interval (str): 캔들 간격 (예: 1,3,5,15,30,60,120,240,360,720,D,W,M)
+            count (int): 가져올 캔들의 개수
+
+        Returns:
+            list[dict]: 표준화된 캔들 데이터 리스트
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            url = f"{cls.server_url}/v5/market/candles?category=linear&symbol={ticker}USDT&interval={interval}&limit={count}"
+            headers = {"accept": "application/json"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+
+                    response = await res.json()
+                    if response.get("retCode") == 0:
+                        candles = response["result"]
+                        standardized_candles = [
+                            {
+                                "timestamp": candle[0],
+                                "open": float(candle[1]),
+                                "high": float(candle[2]),
+                                "low": float(candle[3]),
+                                "close": float(candle[4]),
+                                "volume": float(candle[5])
+                            }
+                            for candle in candles['list']
+                        ]
+                        return standardized_candles
+                    raise Exception(f"Bybit API Error: {response.get('retMsg')}")
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching candles for {ticker}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching candles for {ticker}: {e}")
             raise

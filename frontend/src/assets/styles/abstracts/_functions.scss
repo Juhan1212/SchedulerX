@@ -1,0 +1,32 @@
+@use 'sass:math';
+@use 'sass:map';
+@use 'sass:string';
+@use 'sass:list';
+@use './variables' as var;
+
+@function get-font($lang, $variant) {
+  $lang-map: map.get(var.$font, $lang);
+  $variant-map: map.get($lang-map, $variant);
+  @return $variant-map;
+}
+
+@function get-color($color, $variant) {
+  $color-map: map.get(var.$palette, $color);
+  @return map.get($color-map, $variant);
+}
+
+@function get-breakpoint($breakpoint) {
+  @return map.get(var.$breakpoints, $breakpoint);
+}
+
+@function str-split($string, $separator) {
+  $split-arr: ();
+  $index: string.index($string, $separator);
+  @if $index {
+    $split-arr: list.append($split-arr, string.slice($string, 1, $index - 1));
+    $split-arr: list.append($split-arr, string.slice($string, $index + 1));
+  } @else {
+    $split-arr: list.append($split-arr, $string);
+  }
+  @return $split-arr;
+}

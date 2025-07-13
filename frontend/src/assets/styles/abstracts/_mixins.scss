@@ -1,0 +1,104 @@
+@use 'sass:map';
+@use 'sass:string';
+@use 'sass:list';
+@use './functions' as fn;
+@use './variables' as var;
+
+@mixin apply-font($lang, $variant, $important: false) {
+  $style: fn.get-font($lang, $variant);
+
+  font-family: map.get($style, font-family) #{if($important, ' !important', '')};
+  font-size: map.get($style, font-size) #{if($important, ' !important', '')};
+  font-weight: map.get($style, font-weight) #{if($important, ' !important', '')};
+  line-height: map.get($style, line-height) #{if($important, ' !important', '')};
+}
+
+@mixin apply-color($color, $variant, $prop: color, $important: false) {
+  #{$prop}: fn.get-color($color, $variant) #{if($important, ' !important', '')};
+}
+
+@mixin responsive($breakpoint) {
+  @media (max-width: map.get(var.$breakpoints, $breakpoint)) {
+    @content;
+  }
+}
+@mixin button-effect($bg-color, $hover-color) {
+  position: relative;
+  background-color: $bg-color;
+  transition: background-color 0.3s, transform 0.1s;
+  overflow: hidden;
+  z-index: 1;
+
+  &:hover {
+    background-color: $hover-color;
+  }
+
+  &:active {
+    transform: translateY(2px) scale(0.98);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    z-index: -1;
+    transition: width 0s, height 0s, opacity 0.3s;
+  }
+
+  &:active::after {
+    width: 600px;
+    height: 200px;
+    border-radius: 100;
+    opacity: 1;
+    transition: width 0.4s, height 0.4s, opacity 0s;
+  }
+}
+@mixin button-base($size, $color: 'primary', $variant: 'main', $hover: null) {
+  $size-map: map.get(var.$button-sizes, $size);
+  $font-key: map.get($size-map, 'font');
+
+  $bg-color: fn.get-color($color, $variant);
+
+  $hover-color: $bg-color;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: map.get($size-map, 'gap');
+  @if $hover {
+    @if not string.index(#{$hover}, '#') and not string.index(#{$hover}, ':') {
+      $hover-color: fn.get-color($color, $hover);
+    } @else if string.index(#{$hover}, '#') == 1 {
+      $hover-color: $hover;
+    } @else if string.index(#{$hover}, ':') {
+      $parts: fn.str-split(#{$hover}, ':');
+      $hover-color: fn.get-color(list.nth($parts, 1), list.nth($parts, 2));
+    }
+  }
+
+  @include apply-font('kor', $font-key);
+  @include button-effect($bg-color, $hover-color);
+
+  height: map.get($size-map, 'height');
+  padding: map.get($size-map, 'padding');
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+}
+
+@mixin button-resize($size) {
+  $size-map: map.get(var.$button-sizes, $size);
+  $font-key: map.get($size-map, 'font');
+
+  @include apply-font('kor', $font-key);
+
+  height: map.get($size-map, 'height');
+  padding: map.get($size-map, 'padding');
+}

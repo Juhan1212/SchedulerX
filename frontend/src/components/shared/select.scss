@@ -1,0 +1,74 @@
+@use '../../assets/styles/abstracts/mixins' as *;
+
+.custom-select {
+  position: relative;
+  cursor: pointer;
+
+  &.disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+}
+
+.select-input {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.select-value {
+  display: flex;
+  align-items: center;
+}
+
+.select-arrow-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+.select-arrow.open .select-arrow-icon {
+  transform: rotate(180deg);
+}
+
+.select-arrow.disabled .select-arrow-icon {
+  path {
+    @include apply-color('common', 'common-grey', fill);
+  }
+}
+
+.select-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  .select-option {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+
+    &:hover {
+      @include apply-color('primary', 'lighter', background-color);
+    }
+
+    &.selected {
+      @include apply-color('primary', 'light', background-color);
+    }
+
+    .option-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .option-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}

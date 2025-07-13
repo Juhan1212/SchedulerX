@@ -1,0 +1,66 @@
+@use '../abstracts/mixins' as *;
+
+.page-header {
+  padding-top: 188px;
+  padding-bottom: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  @include responsive('md') {
+    padding-top: 170px;
+  }
+  @include responsive('sm') {
+    padding-top: 122px;
+    padding-bottom: 36px;
+    gap: 8px;
+  }
+
+  &.hide-on-mobile {
+    @include responsive('sm') {
+      display: none;
+    }
+  }
+}
+
+.page-header-title {
+  @include apply-color('common', 'common-white');
+  @include apply-font('kor', 'h1');
+  @include responsive('md') {
+    @include apply-font('kor', 'h2-b');
+  }
+}
+
+.my-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  &-item {
+    @include apply-font('kor', 'subhead1');
+    @include apply-color('common', 'common-white');
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    svg {
+      width: 20px;
+      height: 20px;
+      @include apply-color('primary', 'main');
+    }
+    @include responsive('sm') {
+      @include apply-font('kor', 'label-lg');
+    }
+  }
+}
+
+.page-header-subtitle {
+  @include apply-color('common', 'common-white');
+  @include apply-font('kor', 'h3');
+  span {
+    @include apply-color('primary', 'main');
+  }
+  @include responsive('md') {
+    @include apply-font('kor', 'label-lg');
+  }
+}

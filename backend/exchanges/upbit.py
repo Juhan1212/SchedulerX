@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime, timezone
 import uuid
 import aiohttp
 import dotenv
@@ -137,6 +138,53 @@ class UpbitExchange(Exchange):
         except Exception as e:
             logger.error(f"Error fetching ticker price for {ticker}: {e}")
             raise
+        
+    @classmethod
+    async def get_ticker_candles(cls, ticker: str, interval: str = "1m", to: int = 0, count: int = 200):
+        """
+        Upbit에서 특정 티커의 캔들 데이터를 가져옵니다.
+        to: UTC timestamp 초단위 → ISO8601 포맷으로 변환하여 url 파라미터로 사용
+        """
+        try:
+            # interval 매핑 로직
+            minute_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "8h", "1d", "1w"}
+            if interval in minute_intervals:
+                endpoint = f"/v1/candles/minutes/{interval[:-1]}"  # 마지막 문자 제거
+            elif interval == "1d":
+                endpoint = "/v1/candles/days"
+            elif interval == "1w":
+                endpoint = "/v1/candles/weeks"
+            else:
+                raise ValueError(f"Unsupported interval: {interval}")
+
+            url = f"{cls.server_url}{endpoint}?market=KRW-{ticker}&count={count}"
+            if to:
+                
+                iso_to = datetime.fromtimestamp(to, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                url += f"&to={iso_to}"
+            headers = {"accept": "application/json"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Upbit API Error: {res.status} - {await res.text()}")
+                    candles = await res.json()
+                    return [
+                        {
+                            "timestamp": int(datetime.strptime(candle["candle_date_time_utc"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp()),
+                            "open": candle["opening_price"],
+                            "high": candle["high_price"],
+                            "low": candle["low_price"],
+                            "close": candle["trade_price"],
+                            "volume": candle["candle_acc_trade_volume"]
+                        }
+                        for candle in candles
+                    ]
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching candles for {ticker}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching candles for {ticker}: {e}")
+            raise
 
     async def get_depo_with_pos_tickers(self):
         """
@@ -181,4 +229,3 @@ class UpbitExchange(Exchange):
             logger.error(f"Unexpected error while fetching deposit/withdrawal tickers: {e}")
             raise
 
-    

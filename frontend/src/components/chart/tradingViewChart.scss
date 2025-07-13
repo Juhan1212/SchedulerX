@@ -1,0 +1,289 @@
+@use "../../assets/styles/abstracts/mixins" as *;
+@use "../../assets/styles/abstracts/functions" as *;
+
+.chart-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.time-interval-container {
+  width: 100%;
+  border-bottom: 1px solid get-color("primary", "inactive");
+  height: 100%;
+  @include apply-color("primary", "layer3", background-color);
+}
+
+.time-interval-bar {
+  display: inline-flex;
+  height: 40px;
+  position: relative;
+  align-items: center;
+  gap: 8px;
+  @include responsive("sm") {
+    padding-left: 8px;
+  }
+}
+
+.time-interval-icon {
+  width: 20px;
+  height: 20px;
+  margin: 0 8px 0 16px;
+  @include apply-color("primary", "inactive");
+  @include responsive("sm") {
+    display: none;
+  }
+}
+
+.interval-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  @include apply-font("eng", "subhead2");
+  @include apply-color("primary", "inactive");
+  background: none;
+  border: none;
+  cursor: pointer;
+
+  &.active {
+    @include apply-color("common", "common-white");
+  }
+
+  &:hover {
+    @include apply-color("primary", "main");
+  }
+  @include responsive("sm") {
+    @include apply-font("eng", "value2");
+  }
+}
+
+.interval-btn-dropdown {
+  border: none;
+  background: none;
+  cursor: pointer;
+
+  .arrow-icon {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+    path {
+      @include apply-color("primary", "inactive", fill);
+    }
+  }
+
+  .arrow-icon.open {
+    transform: rotate(180deg);
+  }
+}
+
+.interval-modal {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  pointer-events: none;
+  position: absolute;
+  top: 95%;
+  right: -10%;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  z-index: 100;
+
+  &.visible {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    @include apply-color("primary", "layer3", background-color);
+    border-radius: 10px;
+    border: 1px solid get-color("primary", "inactive");
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  @include apply-font("kor", "label-sm");
+  @include apply-color("common", "common-white");
+  p {
+    @include apply-font("kor", "body4");
+    display: inline-block;
+  }
+}
+
+.interval-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.interval-option {
+  @include apply-font("eng", "value2");
+  @include apply-color("primary", "inactive");
+  background: none;
+  border: 1px solid get-color("primary", "inactive");
+  cursor: pointer;
+  border-radius: 100px;
+  width: 48px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  &.filled {
+    @include apply-color("common", "common-white");
+    @include apply-color("primary", "inactive", background-color);
+  }
+}
+
+.chart-content {
+  width: 100%;
+  height: 480px;
+  display: flex;
+  align-items: stretch;
+  @include responsive("sm") {
+    height: 350px;
+    flex-direction: column;
+  }
+}
+
+.tool-bar-container {
+  width: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom-left-radius: 10px;
+  border-right: 1px solid get-color("primary", "inactive");
+  @include apply-color("primary", "layer3", background-color);
+  @include responsive("sm") {
+    order: 2; // Move toolbar below chart
+    width: 100%;
+    height: 30px;
+    flex-direction: row;
+    align-items: center; // Center items vertically
+    justify-content: center; // Center items horizontally
+    border-right: none;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+
+.tool-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 16px 0 36px 0;
+  @include responsive("sm") {
+    flex-direction: row;
+    padding: 0; // Remove all padding in mobile view
+    height: 30px; // Match container height
+    width: 100%;
+    align-items: center; // Ensure vertical centering
+    justify-content: center; // Center horizontally
+  }
+}
+
+.drawing-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  @include responsive("sm") {
+    flex-direction: row;
+    gap: 12px;
+  }
+}
+
+.tool-btn {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  .drawing-tool-icon {
+    width: 24px;
+    height: 24px;
+    path {
+      @include apply-color("primary", "inactive", fill);
+      @include apply-color("primary", "inactive", stroke);
+    }
+    &.active {
+      path {
+        @include apply-color("common", "common-white", fill);
+        @include apply-color("common", "common-white", stroke);
+      }
+    }
+    @include responsive("sm") {
+      width: 16px;
+      height: 16px;
+    }
+  }
+  &:hover {
+    .drawing-tool-icon {
+      path {
+        @include apply-color("primary", "main", fill);
+        @include apply-color("primary", "main", stroke);
+      }
+    }
+  }
+}
+
+.control-visible {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  .control-btn {
+    @include apply-font("eng", "value2");
+    @include apply-color("primary", "inactive");
+    &:hover {
+      @include apply-color("primary", "main");
+    }
+    &.active {
+      @include apply-color("common", "common-white");
+    }
+    @include responsive("sm") {
+      font-size: 10px;
+    }
+  }
+  @include responsive("sm") {
+    flex-direction: row;
+    gap: 16px;
+  }
+}
+
+.chart-area {
+  position: relative;
+  width: calc(100% - 54px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // border-bottom-right-radius: 10px;
+  @include responsive("sm") {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.tv-lightweight-charts {
+  // border-bottom-right-radius: 10px;
+  border-right: 1px solid get-color("primary", "inactive");
+  border-bottom: 1px solid get-color("primary", "inactive");
+}
+
+#tv-attr-logo {
+  display: none !important;
+}

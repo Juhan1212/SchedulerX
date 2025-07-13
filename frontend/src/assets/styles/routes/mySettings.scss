@@ -1,0 +1,73 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/functions' as *;
+
+.settings-btn-group {
+  width: 540px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  @include responsive('lg') {
+    width: 100%;
+  }
+  @include responsive('sm') {
+    gap: 16px;
+  }
+}
+.settings-btn {
+  @include button-base('md', 'primary', 'layer1', 'common:common-white');
+  @include apply-color('common', 'common-white');
+  border: 1px solid get-color('common', 'common-white');
+  &:hover {
+    @include apply-color('primary', 'layer1');
+  }
+}
+
+.delete-account-btn {
+  margin-top: 36px;
+  @include apply-color('common', 'common-white');
+  @include apply-font('kor', subhead2);
+  text-decoration: underline;
+}
+
+.password-input {
+  width: 100%;
+  height: 44px;
+  border-radius: 100px;
+  padding: 0 24px;
+  outline: 1px solid;
+  @include apply-color('common', 'common-grey', outline-color);
+
+  @include apply-color('common', 'common-white', background-color);
+  @include apply-font('kor', 'body2');
+  @include apply-color('primary', 'layer3');
+
+  &::placeholder {
+    @include apply-font('kor', 'subhead2');
+    @include apply-color('common', 'common-grey');
+    opacity: 0.5;
+  }
+
+  &:focus {
+    outline: 1px solid;
+    @include apply-color('primary', 'main', outline-color);
+    @include apply-color('common', 'common-white', background-color);
+    @include apply-color('primary', 'dark');
+  }
+
+  &:-webkit-autofill {
+    -webkit-text-fill-color: get-color('primary', 'dark') !important;
+    box-shadow: 0 0 0 30px get-color('primary', 'lighter') inset !important;
+    @include apply-font('kor', 'body2', true);
+  }
+
+  &:-webkit-autofill:focus {
+    box-shadow: 0 0 0 30px get-color('common', 'common-white') inset !important;
+    outline: 1px solid get-color('primary', 'main');
+  }
+}
+
+.dialog-content.normal-text {
+  @include apply-color('primary', 'dark');
+  @include apply-font('kor', 'body2');
+}

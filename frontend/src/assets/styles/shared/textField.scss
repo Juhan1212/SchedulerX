@@ -1,0 +1,82 @@
+@use '../abstracts/mixins' as *;
+@use '../abstracts/functions' as *;
+
+.normal-form {
+  width: 540px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  @include responsive('md') {
+    width: 100%;
+  }
+  @include responsive('sm') {
+    gap: 16px;
+  }
+}
+
+.input-group {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+  @include responsive('md') {
+    gap: 8px;
+  }
+}
+
+.normal-input {
+  width: 100%;
+  height: 44px;
+  border-radius: 100px;
+  padding: 0 24px;
+  outline: none;
+  border: none;
+
+  @include apply-color('common', 'common-white', background-color);
+  @include apply-font('kor', 'body2');
+  @include apply-color('primary', 'layer3');
+
+  &::placeholder {
+    @include apply-font('kor', 'subhead2');
+    @include apply-color('primary', 'light');
+  }
+
+  &:focus {
+    outline: 1px solid;
+    @include apply-color('primary', 'main', outline-color);
+    @include apply-color('common', 'common-white', background-color);
+    @include apply-color('primary', 'dark');
+  }
+
+  &:-webkit-autofill {
+    -webkit-text-fill-color: get-color('primary', 'dark') !important;
+    box-shadow: 0 0 0 30px get-color('primary', 'lighter') inset !important;
+    @include apply-font('kor', 'body2', true);
+  }
+
+  &:-webkit-autofill:focus {
+    box-shadow: 0 0 0 30px get-color('common', 'common-white') inset !important;
+    outline: 1px solid get-color('primary', 'main');
+  }
+}
+
+.normal-label {
+  @include apply-font('kor', 'subhead2');
+  @include apply-color('common', 'common-white');
+  @include responsive('lg') {
+    @include apply-font('kor', 'label-md');
+  }
+}
+
+.normal-submit-btn {
+  @include button-base('md', 'primary', 'main', 'dark');
+  @include apply-color('common', 'common-white');
+  width: 100%;
+  margin-top: 24px;
+  @include responsive('md') {
+    margin-top: 16px;
+  }
+}

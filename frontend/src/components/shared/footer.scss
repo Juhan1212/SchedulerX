@@ -1,0 +1,84 @@
+@use '../../assets/styles/abstracts/mixins' as *;
+@use '../../assets/styles/abstracts/functions' as *;
+
+.footer-container {
+  @include apply-color('primary', 'layer3', background-color);
+  width: 100%;
+  margin-top: 96px;
+  height: 100%;
+  padding: 20px;
+
+  @include responsive('md') {
+    margin-top: 40px;
+  }
+  @include responsive('sm') {
+    margin-top: 40px;
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: get-breakpoint('xl') - 40px;
+  margin: 0 auto;
+  padding: 96px 20px;
+  @include responsive('lg') {
+    flex-direction: column;
+    gap: 48px;
+    align-items: flex-start;
+  }
+  @include responsive('sm') {
+    gap: 36px;
+    padding: 80px 12px;
+  }
+}
+
+.footer-logo {
+  width: 267px;
+  height: 36px;
+  @include responsive('lg') {
+    width: 240px;
+    height: 32px;
+  }
+}
+
+.company-info {
+  @include apply-color('common', 'common-grey');
+  @include apply-font('kor', 'body3');
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  .company-desc {
+    @include apply-font('kor', 'subhead1');
+    @include apply-color('primary', 'inactive');
+    margin-bottom: -15px;
+  }
+  .company-name {
+    @include apply-font('kor', 'subhead1');
+    @include apply-color('primary', 'inactive');
+  }
+  @include responsive('lg') {
+    @include apply-font('kor', 'body4');
+    .company-name {
+      @include apply-font('kor', 'label-md');
+    }
+  }
+}
+
+.links {
+  text-decoration: none;
+  @include apply-color('common', 'common-grey');
+  @include apply-font('kor', 'subhead1');
+  display: flex;
+  gap: 24px;
+  a {
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  @include responsive('lg') {
+    @include apply-font('kor', 'label-md');
+  }
+}

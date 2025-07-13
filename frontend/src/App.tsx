@@ -1,20 +1,30 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Signup from "./Signup";
-import "./App.css";
-import Login from "./Login";
-import Home from "./Home";
+import Signup from "./pages/Signup";
+import Login, { action as loginAction } from "./pages/Login";
+import Home from "./pages/Home";
+import MyPage from "./pages/Mypage";
+import NetworkErrorBoundary from "./pages/NetworkErrorBoundary";
 
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        {/* 필요시 다른 라우트도 추가 가능 */}
-      </Routes>
-    </BrowserRouter>
-  );
-}
+// App 컴포넌트는 children 라우트만 반환
+export const routes = [
+  {
+    path: "/",
+    element: <Home />,
+  },
+  {
+    path: "/signup",
+    element: <Signup />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+    action: loginAction,
+    errorElement: <NetworkErrorBoundary />, // 네트워크 에러 바운더리
+  },
+  {
+    path: "/my/*",
+    element: <MyPage />,
+  },
+  // 필요시 다른 라우트도 추가 가능
+];
 
-export default App;
+export default routes;

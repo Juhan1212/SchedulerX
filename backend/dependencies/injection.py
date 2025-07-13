@@ -1,5 +1,6 @@
 from fastapi import Depends
 from backend.db.base import SessionLocal
+from backend.db.repository.exchange import ExchangeRepository
 from backend.db.repository.user import UserRepository
 from backend.services.user import UserService
 from backend.db.repository.ticker import TickerRepository
@@ -23,3 +24,6 @@ def get_ticker_repository(db=Depends(get_db)):
 
 def get_ticker_service(repo=Depends(get_ticker_repository)):
     return TickerService(repo)
+
+def get_exchange_repository(db=Depends(get_db)):
+    return ExchangeRepository(db)

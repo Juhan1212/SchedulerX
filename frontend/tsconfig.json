@@ -1,7 +1,25 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler", // vite 사용 시
+    "jsx": "react-jsx", // react 프로젝트라면
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true, // 쓰고 싶으면
+    "noEmit": true,
+    "esModuleInterop": true, // jest 등 commonjs 라이브러리 import 시 필요
+    "types": ["jest", "node"], // jest와 node 타입 둘 다 포함
+    "baseUrl": "./src",
+    "paths": {
+      "@icons/*": ["assets/icons/*"],
+      "@styles/*": ["assets/styles/*"]
+    }
+  },
+  "include": ["src", "tests", "vite.config.ts"]
 }

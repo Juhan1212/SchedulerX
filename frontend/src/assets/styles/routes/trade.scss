@@ -1,0 +1,42 @@
+@use "../abstracts/mixins" as *;
+@use "../abstracts/functions" as *;
+@use "../../../components/chart/trickerInfoBor.scss";
+@use "../../../components/chart/tradingViewChart.scss";
+@use "../../../components/chart/tradingSetUi.scss";
+@use "../../../components/chart/positionHistory.scss";
+
+.chart-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: column;
+  gap: 12px;
+
+  @include responsive("md") {
+    padding: 0 20px;
+  }
+
+  @include responsive("sm") {
+    padding: 30px 0 20px 0;
+  }
+}
+
+.chart-grid {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  & > * {
+    flex: 1 1 calc(33.33% - 12px); // 3개로 나누기
+    max-width: calc(33.33% - 12px);
+  }
+
+  @include responsive("sm") {
+    flex-direction: column; // 작은 화면에서는 세로로 배열
+    & > * {
+      max-width: 100%;
+    }
+  }
+}

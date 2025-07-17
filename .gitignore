@@ -38,6 +38,3 @@ __pycache__/
 .pytest_cache
 
 *.db
-*.lock
-
-tests/

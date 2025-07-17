@@ -33,7 +33,7 @@ def get_db_cursor(db_path="app.db"):
     finally:
         conn.close()
 
-async def insert_tickers(exchange):
+async def upsert_tickers(exchange):
     """
     데이터베이스에 티커를 삽입합니다.
     """
@@ -55,7 +55,7 @@ def get_common_tickers(exchanges: tuple[Exchange, Exchange]) -> list[str]:
         exchange1 = exchanges[0].name
         exchange2 = exchanges[1].name
         query = """
-            SELECT t1.ticker
+            SELECT t1.name
             FROM tickers t1
             INNER JOIN tickers t2
             ON t1.name = t2.name
@@ -72,7 +72,7 @@ async def renew_tickers():
     티커 정보를 갱신합니다.
     """
     await asyncio.gather(
-        *(insert_tickers(exchange) for exchange in list(exMgr.exchanges.keys()))
+        *(upsert_tickers(exchange) for exchange in list(exMgr.exchanges.keys()))
     )
     with get_db_cursor() as cursor:
         dep_with_pos_tickers = await exMgr.exchanges["upbit"].get_depo_with_pos_tickers()

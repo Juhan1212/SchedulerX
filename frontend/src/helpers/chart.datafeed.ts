@@ -21,7 +21,11 @@ export class CandleDatafeed {
   }
 
   getFirstDataTime() {
-    return this._data.candleData[0].time;
+    return this._data.candleData.length > 0 &&
+      this._data.candleData[0] &&
+      typeof this._data.candleData[0].time !== "undefined"
+      ? this._data.candleData[0].time
+      : undefined;
   }
 
   getLatestDataTime() {

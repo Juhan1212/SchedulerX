@@ -147,9 +147,15 @@ class UpbitExchange(Exchange):
         """
         try:
             # interval 매핑 로직
-            minute_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "8h", "1d", "1w"}
+            minute_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "8h"}
             if interval in minute_intervals:
-                endpoint = f"/v1/candles/minutes/{interval[:-1]}"  # 마지막 문자 제거
+                if interval == "1h":
+                    minute = "60"
+                elif interval == "4h":
+                    minute = "240"
+                else:
+                    minute = interval[:-1]
+                endpoint = f"/v1/candles/minutes/{minute}"
             elif interval == "1d":
                 endpoint = "/v1/candles/days"
             elif interval == "1w":
@@ -159,7 +165,6 @@ class UpbitExchange(Exchange):
 
             url = f"{cls.server_url}{endpoint}?market=KRW-{ticker}&count={count}"
             if to:
-                
                 iso_to = datetime.fromtimestamp(to, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
                 url += f"&to={iso_to}"
             headers = {"accept": "application/json"}

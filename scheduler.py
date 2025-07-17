@@ -85,6 +85,7 @@ async def renew_tickers():
 def calculate_orderbook_exrate_task(tickers: list[str], seed: int):
     """
     worker가 tickers를 받아서 환율을 계산하는 작업입니다.
+    consumer.py에서 이 작업을 구현하고 실행합니다.
     """
     pass
 
@@ -117,7 +118,7 @@ def schedule_workers_task():
     logger.info(f"스케줄링된 작업 수: {len(tasks)}")
     
     group(tasks).apply_async()
-    logger.info("작업이 SQS에 전달되었습니다.")
+    logger.info("작업이 브로커에 전달되었습니다.")
 
 
 def get_admin_seed_money():

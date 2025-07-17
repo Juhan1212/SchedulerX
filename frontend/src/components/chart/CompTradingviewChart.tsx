@@ -21,6 +21,7 @@ import {
   type IPriceLine,
 } from "lightweight-charts";
 import { MACD, RSI } from "technicalindicators";
+import { getTimeValue } from "../../helpers/time";
 import type { Position } from "gate-api";
 import type { CandleData } from "../../helpers/candle";
 import { useLocation } from "react-router-dom";
@@ -31,10 +32,11 @@ import {
   intervalInSeconds,
 } from "../../helpers/time";
 // import { ToolBox } from "./ToolBox";
-import type {
-  CandleBarData,
-  PositionData,
-  TickerData,
+import {
+  ContractSize,
+  type CandleBarData,
+  type PositionData,
+  type TickerData,
 } from "../../types/marketInfo";
 import { isBarData, isCandleBarData } from "../../helpers/guard";
 import { useMarkerStore } from "../../states/markerState";
@@ -50,11 +52,15 @@ const CompTradingviewChart = memo(
     positions,
     store1,
     store2,
+    symbol,
+    interval,
     exchange1,
     exchange2,
   }: TradingviewChartProps & {
     store1: ReturnType<typeof createWebSocketStore>;
     store2: ReturnType<typeof createWebSocketStore>;
+    symbol: string;
+    interval: string;
     exchange1: string;
     exchange2: string;
   }) => {
@@ -70,8 +76,6 @@ const CompTradingviewChart = memo(
 
     // 각 거래소의 웹소켓 스토어에서 메시지 리스너를 가져옴
     const {
-      symbol,
-      interval,
       addMessageListener: addMessageListener1,
       removeMessageListener: removeMessageListener1,
     } = store1.getState();
@@ -329,6 +333,22 @@ const CompTradingviewChart = memo(
         };
 
         const candleDataUpdate = () => {
+          // 현재 시리즈의 데이터 배열
+          const seriesData = datafeedRef.current?.getData().candleData ?? [];
+          // 가장 오래된 데이터의 time
+          const oldestTime =
+            seriesData.length > 0 ? seriesData[0].time : undefined;
+
+          const candleTimeValue = getTimeValue(candle.time);
+          const oldestTimeValue = getTimeValue(oldestTime);
+
+          if (
+            typeof candleTimeValue === "number" &&
+            typeof oldestTimeValue === "number" &&
+            candleTimeValue < oldestTimeValue
+          ) {
+            return;
+          }
           if (
             !chartRef.current ||
             !candleSeriesRef.current ||
@@ -336,34 +356,15 @@ const CompTradingviewChart = memo(
           )
             return;
 
-          // whitespace 데이터 추가에 따라 수정함
-          // whitespace 데이터 추가 시에는 update메소드 2번째 파라미터(historicalUpdate)를 true로 해야함
-          // whitespace 데이터 추가 시에 전체 데이터가 조회되지 않는 버그가 있음. (https://github.com/tradingview/lightweight-charts/issues/1649)
-          // try catch로 감싸서 임시방편으로 해결하자 (getVisibleRange로 확인하는 것도 한계가 있음)
+          // 해당 time에 이미 데이터가 있는지 확인
+          // const existingCandle =
+          //   typeof candle.time !== "undefined" &&
+          //   datafeedRef.current
+          //     ?.getData()
+          //     .candleData.some((d) => d.time === candle.time);
+          // const historicalUpdate = !!existingCandle;
+
           try {
-            candleSeriesRef.current.update(candle, false);
-            volumeSeriesRef.current.update(
-              {
-                ...volume,
-                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
-              },
-              false
-            );
-            volumeSeriesEx1Ref.current?.update(
-              {
-                ...ex1VolumeData,
-                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
-              },
-              false
-            );
-            volumeSeriesEx2Ref.current?.update(
-              {
-                ...ex2VolumeData,
-                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
-              },
-              false
-            );
-          } catch {
             candleSeriesRef.current.update(candle, true);
             volumeSeriesRef.current.update(
               {
@@ -386,16 +387,31 @@ const CompTradingviewChart = memo(
               },
               true
             );
+          } catch {
+            // fallback: 항상 false로 update
+            candleSeriesRef.current.update(candle, false);
+            volumeSeriesRef.current.update(
+              {
+                ...volume,
+                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
+              },
+              false
+            );
+            volumeSeriesEx1Ref.current?.update(
+              {
+                ...ex1VolumeData,
+                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
+              },
+              false
+            );
+            volumeSeriesEx2Ref.current?.update(
+              {
+                ...ex2VolumeData,
+                color: candle.close > candle.open ? "#00CE84" : "#FC2861",
+              },
+              false
+            );
           }
-
-          // const range = chartRef.current?.timeScale().getVisibleRange()
-          // const lastBarTime = range?.to
-          // if (!lastBarTime) throw new Error('lastBarTime is undefined')
-          // if (Number(time) >= Number(lastBarTime)) {
-          //   candleSeriesRef.current?.update(candle, false)
-          // } else {
-          //   candleSeriesRef.current?.update(candle, true)
-          // }
         };
 
         candleDataUpdate();
@@ -531,16 +547,73 @@ const CompTradingviewChart = memo(
         if (!datafeedRef.current) return;
         if (!isCandleBarData(data)) return;
 
+        // USDT 캔들 데이터는 라인 시리즈 및 데이터피드에 반영
+        if ((data as CandleBarData).symbol === "USDT") {
+          const time =
+            Math.floor(data.time / 1000) + getBrowserTimezoneOffset() * 60 * 60;
+          try {
+            if (lineSeriesRef.current) {
+              lineSeriesRef.current.update(
+                {
+                  time: time as Time,
+                  value: data.close,
+                },
+                true
+              );
+            }
+          } catch {
+            if (lineSeriesRef.current) {
+              lineSeriesRef.current.update(
+                {
+                  time: time as Time,
+                  value: data.close,
+                },
+                false
+              );
+            }
+          }
+          try {
+            // 데이터피드에도 반영
+            if (datafeedRef.current) {
+              const currentData = datafeedRef.current.getData();
+              const usdtCandleData = currentData.usdtCandleData;
+              if (!usdtCandleData) return;
+              const idx = usdtCandleData.findIndex(
+                (c) => c && typeof c.time !== "undefined" && c.time === time
+              );
+              if (idx !== -1) {
+                usdtCandleData[idx] = {
+                  time: Number(Math.floor(data.time / 1000)),
+                  value: data.close,
+                };
+              } else {
+                usdtCandleData.push({
+                  time: Number(Math.floor(data.time / 1000)),
+                  value: data.close,
+                });
+              }
+              datafeedRef.current.setData({
+                ...currentData,
+                usdtCandleData: usdtCandleData,
+              });
+            }
+          } catch (error) {
+            console.log(time);
+            console.error("Error updating USDT line series:", error);
+          }
+          return;
+        }
+
         // 동일한 time의 데이터가 이미 있으면 기존 데이터를 꺼내서 value를 업데이트하고 버퍼에 다시 저장
         klineBuffer1.current.set(data.time, data);
 
         // 두 거래소 모두 해당 time 데이터가 있으면 조합
         const data2 = klineBuffer2.current.get(data.time);
         if (data2) {
-          handleCombinedKline(data, data2);
+          handleCombinedKline(data as CandleBarData, data2 as CandleBarData);
         }
       },
-      [handleCombinedKline]
+      [handleCombinedKline, exchange2, symbol]
     );
 
     // 거래소2 메시지 핸들러
@@ -549,7 +622,14 @@ const CompTradingviewChart = memo(
         if (!datafeedRef.current) return;
         if (!isCandleBarData(data)) return;
 
-        // 동일한 time의 데이터가 이미 있으면 기존 데이터를 꺼내서 value를 업데이트하고 버퍼에 다시 저장
+        if (exchange2 === "GATEIO") {
+          const contractKey = `${symbol}_USDT` as keyof typeof ContractSize;
+          if (contractKey in ContractSize) {
+            data.volume = data.volume * ContractSize[contractKey];
+          }
+        }
+
+        // 버퍼에 저장
         klineBuffer2.current.set(data.time, data);
 
         // 두 거래소 모두 해당 time 데이터가 있으면 조합
@@ -558,7 +638,7 @@ const CompTradingviewChart = memo(
           handleCombinedKline(data1, data);
         }
       },
-      [handleCombinedKline]
+      [handleCombinedKline, exchange2, symbol]
     );
 
     // 차트 초기화
@@ -899,6 +979,8 @@ const CompTradingviewChart = memo(
 
           const earliestDataTime = datafeedRef.current?.getFirstDataTime();
 
+          if (!earliestDataTime) return;
+
           // 현재 차트에서 보이는 최초 데이터 시간보다 interval 시간만큼 빼서 데이터를 가져오는데, 데이터 중복이 발생하지 않도록 조정
           const adjustedEarliestDataTime =
             earliestDataTime! - intervalInSeconds(interval);
@@ -926,18 +1008,18 @@ const CompTradingviewChart = memo(
         if (!navigator.onLine) return;
         if (document.visibilityState === "visible") {
           // 1) 기존 데이터 클리어
-          datafeedRef.current?.setData({
-            candleData: [],
-            volumeData: [],
-            ex1VolumeData: [],
-            ex2VolumeData: [],
-            usdtCandleData: [],
-          });
-          candleSeriesRef.current?.setData([]);
-          volumeSeriesRef.current?.setData([]);
-          volumeSeriesEx1Ref.current?.setData([]);
-          volumeSeriesEx2Ref.current?.setData([]);
-          lineSeriesRef.current?.setData([]);
+          // datafeedRef.current?.setData({
+          //   candleData: [],
+          //   volumeData: [],
+          //   ex1VolumeData: [],
+          //   ex2VolumeData: [],
+          //   usdtCandleData: [],
+          // });
+          // candleSeriesRef.current?.setData([]);
+          // volumeSeriesRef.current?.setData([]);
+          // volumeSeriesEx1Ref.current?.setData([]);
+          // volumeSeriesEx2Ref.current?.setData([]);
+          // lineSeriesRef.current?.setData([]);
 
           // 2) 재요청
           setTimeout(() => {
@@ -1126,6 +1208,7 @@ const CompTradingviewChart = memo(
         ...(data.usdtCandleData ?? []),
         ...(originalData.usdtCandleData ?? []),
       ].forEach((candle) => {
+        if (!candle || typeof candle.time === "undefined") return;
         usdtCandleDataMap.set(candle.time as number, candle as LineData);
       });
 

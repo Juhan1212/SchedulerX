@@ -1,3 +1,4 @@
+import json
 import asyncio
 import os
 import logging
@@ -5,7 +6,7 @@ import time
 from celery import Celery
 import redis
 from dotenv import load_dotenv
-from app.core.ex_manager import exMgr
+from backend.core.ex_manager import exMgr
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
 
@@ -64,17 +65,13 @@ def work_task(data, seed):
     res = asyncio.gather(*tasks)
     
     if res:
-        for item in res:
-            try:
-                # 결과를 Redis에 저장
-                redis_client.set(item['ticker'], item['exchange_rate'])
-                redis_client.publish('exchange_rate', item['exchange_rate'])
-            except (ConnectionError, TimeoutError) as e:
-                logger.error(f"Redis connection error: {e}")
-                # 재시도 로직 추가
-                reconnect_redis()
-                redis_client.set(item['ticker'], item['exchange_rate'])
-                redis_client.publish('exchange_rate', item['exchange_rate'])
+        try:
+            # res 전체를 JSON 문자열로 변환하여 한 번에 publish
+            redis_client.publish('exchange_rate', json.dumps(res))
+        except (ConnectionError, TimeoutError) as e:
+            logger.error(f"Redis connection error: {e}")
+            reconnect_redis()
+            redis_client.publish('exchange_rate', json.dumps(res))
 
     logger.info("작업이 성공적으로 완료되었습니다.")
     

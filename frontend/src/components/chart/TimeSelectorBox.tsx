@@ -1,11 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Icon from "../shared/SVGIcon";
 import { createWebSocketStore } from "../../states/chartState";
 
 const timeIntervals = [
   ["1m", "5m", "15m", "30m"],
-  ["1h", "4h", "8h"],
-  ["1d", "7d", "30d"],
+  ["1h", "4h", "1d"],
 ];
 
 export default function TimeSelector({
@@ -18,12 +17,15 @@ export default function TimeSelector({
   const { interval, setInterval } = store.getState();
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleIntervalChange = (time: string) => {
-    setInterval(time);
-    if (onIntervalChange) {
-      onIntervalChange(time);
-    }
-  };
+  const handleIntervalChange = useCallback(
+    (time: string) => {
+      setInterval(time);
+      if (onIntervalChange) {
+        onIntervalChange(time);
+      }
+    },
+    [setInterval, onIntervalChange]
+  );
 
   const modalContent = useMemo(() => {
     if (!isOpen) return null;
@@ -49,14 +51,14 @@ export default function TimeSelector({
         </div>
       </>
     );
-  }, [interval, isOpen]);
+  }, [interval, isOpen, handleIntervalChange]);
 
   return (
     <div className="time-interval-container">
       {/* Top Bar */}
       <div className="time-interval-bar">
         <Icon type="clock" className="time-interval-icon" />
-        {["1m", "5m", "15m", "1h", "4h", "1d"].map((time) => (
+        {["1m", "5m", "15m", "1h", "4h"].map((time) => (
           <button
             key={time}
             onClick={() => handleIntervalChange(time)}

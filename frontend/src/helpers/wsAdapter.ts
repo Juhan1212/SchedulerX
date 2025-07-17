@@ -1,8 +1,8 @@
-import type {
-  CandleBarData,
-  TickerData,
-  ExchangeType,
-  PositionData,
+import {
+  type CandleBarData,
+  type TickerData,
+  type ExchangeType,
+  type PositionData,
 } from "../types/marketInfo";
 
 export interface WebSocketAdapter {
@@ -126,7 +126,7 @@ export class GateioAdapter implements WebSocketAdapter {
       // Handle ticker data
       const tickerData = message.result[0] as GateioTickerData;
       return {
-        channel: "ticker",
+        channel: "futures.tickers",
         change_percentage: tickerData.change_percentage,
         funding_rate: tickerData.funding_rate,
         mark_price: tickerData.mark_price,
@@ -160,29 +160,33 @@ export const toUpbitSymbol = (symbol: string): string => {
 
 export class UpbitAdapter implements WebSocketAdapter {
   getRequestMessage(type: string, params: WebSocketParams) {
-    const ticket = Math.random().toString(36).substring(2, 15);
+    // const ticket = Math.random().toString(36).substring(2, 15);
     switch (type) {
-      case "kline":
-        // Upbit은 배열 형태로 요청, type: candle.1m 등, codes: [symbol...]
-        // 예시: [{ticket}, {type: "candle.1m", codes: [...]}, {format: "DEFAULT"}]
-        if (type === "kline") {
-          if (!params.symbol || !params.interval) {
-            console.log(params);
-            throw new Error("티커와 인터벌을 모두 지정해야 합니다.");
-          }
-
-          // symbol이 string 또는 string[]일 수 있음
-          return [
-            { ticket: ticket },
-            {
-              type: `candle.${params["interval"] || "1m"}`,
-              codes: [toUpbitSymbol(params["symbol"])],
-            },
-            { format: "JSON_LIST" },
-          ];
+      case "kline": {
+        if (!params.symbol || !params.interval) {
+          console.log(params);
+          throw new Error("티커와 인터벌을 모두 지정해야 합니다.");
         }
-        break;
-      // Upbit ticker 등 필요시 확장
+        // 여러 심볼 지원 (string | string[])
+        const symbols = Array.isArray(params.symbol)
+          ? params.symbol
+          : [params.symbol];
+
+        symbols.push("KRW-USDT"); // USDT 심볼 추가
+        // interval 변환: 1h → 60m, 4h → 240m
+        let interval = params["interval"] || "1m";
+        if (interval === "1h") interval = "60m";
+        if (interval === "4h") interval = "240m";
+
+        return [
+          { ticket: "test" },
+          {
+            type: `candle.${interval}`,
+            codes: symbols.map(toUpbitSymbol),
+          },
+          { format: "JSON_LIST" },
+        ];
+      }
       default:
         throw new Error(`Unknown request type: ${type}`);
     }
@@ -195,18 +199,24 @@ export class UpbitAdapter implements WebSocketAdapter {
       [key: string]: string;
     }[]
   ) {
-    if (message[0].type.startsWith("candle")) {
-      return {
-        channel: "kline",
-        time: new Date(
-          message[0].candle_date_time_utc + "Z" // UTC로 인식하기 위해 "Z" 추가
-        ).getTime(),
-        open: Number(message[0].opening_price),
-        high: Number(message[0].high_price),
-        low: Number(message[0].low_price),
-        close: Number(message[0].trade_price),
-        volume: Number(message[0].candle_acc_trade_volume),
-      } as CandleBarData;
+    try {
+      if (message[0].type.startsWith("candle")) {
+        return {
+          channel: "kline",
+          symbol: message[0].code.replace("KRW-", ""),
+          time: new Date(
+            message[0].candle_date_time_utc + "Z" // UTC로 인식하기 위해 "Z" 추가
+          ).getTime(),
+          open: Number(message[0].opening_price),
+          high: Number(message[0].high_price),
+          low: Number(message[0].low_price),
+          close: Number(message[0].trade_price),
+          volume: Number(message[0].candle_acc_trade_volume),
+        } as CandleBarData;
+      }
+    } catch (error) {
+      console.log(message);
+      console.error("WebSocket message parsing error:", error);
     }
     return null;
   }

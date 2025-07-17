@@ -138,17 +138,21 @@ export const createWebSocketStore = (initialState: Partial<WebSocketState>) =>
 
         // 연결되면 kline 구독
         get().subscribeToCandleBars();
+        // 연결되면 ticker 구독
+        if (exchange !== "UPBIT") {
+          get().subscribeToTicker(get().symbol);
+        }
       };
 
       ws.onclose = () => {
         // 재연결 타이머 설정
-        if (!get().reconnectTimeout) {
-          const timeout = setTimeout(() => {
-            set({ isConnected: false, socket: null, reconnectTimeout: null });
-            get().connectWebSocket();
-          }, 1000);
-          set({ reconnectTimeout: timeout });
-        }
+        // if (!get().reconnectTimeout) {
+        //   const timeout = setTimeout(() => {
+        //     set({ isConnected: false, socket: null, reconnectTimeout: null });
+        //     get().connectWebSocket();
+        //   }, 1000);
+        //   set({ reconnectTimeout: timeout });
+        // }
       };
 
       ws.onerror = (error) => {

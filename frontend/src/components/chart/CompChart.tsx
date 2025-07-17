@@ -3,6 +3,7 @@ import { createWebSocketStore } from "../../states/chartState";
 import TickerInfoBar from "./TickerInfoBar";
 import CompTradingviewChart from "./CompTradingviewChart";
 import TimeSelector from "./TimeSelectorBox";
+import { useStore } from "zustand/react";
 
 interface CompChartProps {
   exchange1: string;
@@ -45,6 +46,10 @@ export const CompChart = ({
     };
   }, [store1, store2]);
 
+  // 아래와 같이 스토어로부터 동기화를 시켜야 CompTradingviewChart에 매개변수로 전달해줘서 티커, 봉이 바뀔 때에 CompTradingviewChart가 리렌더링될 수 있다.
+  const storeSymbol = useStore(store1, (state) => state.symbol);
+  const storeInterval = useStore(store1, (state) => state.interval);
+
   return (
     <div
       className="chart-container"
@@ -52,6 +57,7 @@ export const CompChart = ({
     >
       <TickerInfoBar
         exchange={exchange2}
+        symbol={storeSymbol}
         store={store2}
         onSymbolChange={(newSymbol: string) => {
           store1.getState().setSymbol(newSymbol);
@@ -69,6 +75,8 @@ export const CompChart = ({
         <CompTradingviewChart
           store1={store1}
           store2={store2}
+          symbol={storeSymbol}
+          interval={storeInterval}
           exchange1={exchange1}
           exchange2={exchange2}
         />

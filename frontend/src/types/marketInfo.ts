@@ -15,6 +15,7 @@ export interface TickerData {
 
 export interface CandleBarData {
   channel?: string | null;
+  symbol?: string | null;
   close: number;
   high: number;
   low: number;

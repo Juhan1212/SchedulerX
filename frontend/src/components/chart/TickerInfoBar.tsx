@@ -14,15 +14,16 @@ import { createWebSocketStore } from "../../states/chartState";
 const TickerInfoBar = memo(
   ({
     store,
+    symbol,
     exchange,
     onSymbolChange,
   }: {
     store: ReturnType<typeof createWebSocketStore>;
+    symbol: string;
     exchange: string;
     onSymbolChange?: (newSymbol: string) => void;
   }) => {
-    const { symbol, addMessageListener, removeMessageListener } =
-      store.getState();
+    const { addMessageListener, removeMessageListener } = store.getState();
     const [tickerData, settickerData] = useState<TickerData>({
       change_percentage: null,
       funding_rate: null,
@@ -45,10 +46,10 @@ const TickerInfoBar = memo(
       tickerData.change_percentage === null
         ? "neutral"
         : parseFloat(tickerData.change_percentage) > 0
-        ? "positive"
-        : parseFloat(tickerData.change_percentage) < 0
-        ? "negative"
-        : "neutral";
+          ? "positive"
+          : parseFloat(tickerData.change_percentage) < 0
+            ? "negative"
+            : "neutral";
 
     const getFundingRateClass = (rate: number | null) => {
       if (rate === null || rate === 0) return "neutral";

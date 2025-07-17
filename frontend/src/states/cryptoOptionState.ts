@@ -14,17 +14,17 @@ interface CryptoOptionsState {
 export const useCryptoOptionsStore = create<CryptoOptionsState>((set) => ({
   cryptoOptions: [
     {
-      value: "BTC_USDT",
+      value: "BTC",
       label: "BTC/USDT",
       icon: "v1741628302/symbol-bitcoin_nptpiz.png",
     },
     {
-      value: "ETH_USDT",
+      value: "ETH",
       label: "ETH/USDT",
       icon: "v1742519126/eth_pb9fz5.png",
     },
     {
-      value: "SOL_USDT",
+      value: "SOL",
       label: "SOL/USDT",
       icon: "v1742519126/sol_o3fi9o.png",
     },

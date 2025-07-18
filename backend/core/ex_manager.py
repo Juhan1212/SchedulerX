@@ -22,7 +22,7 @@ class ExchangeManager:
         """
 
         res = await asyncio.gather(
-            UpbitExchange.get_ticker_orderbook(ticker),
+            UpbitExchange.get_ticker_orderbook([ticker]),
             BybitExchange.get_ticker_orderbook(ticker)
         )
 
@@ -31,7 +31,7 @@ class ExchangeManager:
         # 업비트 주문가능수량 구하기
         remaining_seed = seed
         upbit_available_size = 0
-        for unit in upbit_orderbook["orderbook"]:
+        for unit in upbit_orderbook[0]["orderbook"]:
             ob_quote_volume = unit["ask_price"] * unit["ask_size"]
             if remaining_seed >= ob_quote_volume:
                 upbit_available_size += unit["ask_size"]
@@ -62,7 +62,51 @@ class ExchangeManager:
             "exchange_rate": exchange_rate
         }
         
-
+    @staticmethod
+    async def calc_exrate_batch(tickers: list[str], seed: float):
+        """
+        여러 티커에 대해 환율을 일괄 계산합니다.
+        """
+        # Upbit: batch 요청
+        upbit_orderbooks = await UpbitExchange.get_ticker_orderbook(tickers)
+        # Bybit: for문으로 개별 요청
+        bybit_orderbooks = await asyncio.gather(
+            *[BybitExchange.get_ticker_orderbook(ticker) for ticker in tickers]
+        )
+        results = []
+        for upbit_ob, bybit_ob in zip(upbit_orderbooks, bybit_orderbooks):
+            upbit_available_size = 0
+            remaining_seed = seed
+            
+            for unit in upbit_ob[0]["orderbook"]:
+                ob_quote_volume = unit["ask_price"] * unit["ask_size"]
+                if remaining_seed >= ob_quote_volume:
+                    upbit_available_size += unit["ask_size"]
+                    remaining_seed -= ob_quote_volume
+                else:
+                    upbit_available_size += remaining_seed / unit["ask_price"]
+                    break
+            
+            remaining_size = upbit_available_size
+            bybit_quote_volume = 0
+            
+            for unit in bybit_ob["orderbook"]:
+                if remaining_size >= unit["bid_size"]:
+                    bybit_quote_volume += unit["bid_price"] * unit["bid_size"]
+                    remaining_size -= unit["bid_size"]
+                else:
+                    bybit_quote_volume += unit["bid_price"] * remaining_size
+                    break
+            
+            if upbit_available_size == 0 or bybit_quote_volume == 0:
+                continue
+            
+            exchange_rate = seed / bybit_quote_volume
+            results.append({
+                "ticker": upbit_ob["ticker"],
+                "exchange_rate": exchange_rate
+            })
+        return results
 
 
 exMgr = ExchangeManager()

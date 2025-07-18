@@ -60,13 +60,9 @@ def work_task(data, seed, retry_count=0):
         data (list): 티커 리스트
     '''
     logger.info(f"수신된 데이터 : {data}")
-    
-    async def gather_results():
-        tasks = [exMgr.calc_exrate(ticker, seed) for ticker in data]
-        return await asyncio.gather(*tasks)
 
     try:
-        res = asyncio.run(gather_results())
+        res = asyncio.run(exMgr.calc_exrate_batch(data, seed))
         if res:
             redis_client.publish('exchange_rate', json.dumps(res))
     except (ConnectionError, TimeoutError) as e:

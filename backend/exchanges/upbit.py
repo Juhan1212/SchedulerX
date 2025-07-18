@@ -74,48 +74,49 @@ class UpbitExchange(Exchange):
             raise
 
     @classmethod
-    async def get_ticker_orderbook(cls, ticker: str):
+    async def get_ticker_orderbook(cls, tickers: list[str], count: int = 30):
         """
-        Upbit에서 특정 티커의 주문서를 가져옵니다.
+        Upbit에서 여러 티커의 주문서를 한 번에 가져옵니다.
 
         Args:
-            ticker (str): 티커 이름 (예: "BTC")
+            tickers (list[str]): 티커 이름 리스트 (예: ["BTC", "ETH"])
+            level (float): 호가 모아보기 단위
+            count (int): 조회할 호가 개수
 
         Returns:
-            dict: 표준화된 주문서 정보
-
-        Raises:
-            Exception: API 호출 실패 시 발생하는 예외
+            list[dict]: 각 티커의 표준화된 주문서 정보 리스트
         """
         try:
-            url = f"{cls.server_url}/v1/orderbook?markets=KRW-{ticker}"
+            markets = ",".join([f"KRW-{ticker}" for ticker in tickers])
+            url = f"{cls.server_url}/v1/orderbook?markets={markets}&count={count}"
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:
                     if res.status != 200:
                         raise Exception(f"Upbit API Error: {res.status} - {await res.text()}")
-                    
                     response = await res.json()
-                    orderbook_data = response[0]
-                    standardized_orderbook = {
-                        "ticker": ticker,
-                        "timestamp": orderbook_data["timestamp"],
-                        "orderbook": [
-                            {
-                                "ask_price": unit["ask_price"],
-                                "bid_price": unit["bid_price"],
-                                "ask_size": unit["ask_size"],
-                                "bid_size": unit["bid_size"]
-                            }
-                            for unit in orderbook_data["orderbook_units"]
-                        ]
-                    }
-                    return standardized_orderbook
+                    result = []
+                    for orderbook_data in response:
+                        standardized_orderbook = {
+                            "ticker": orderbook_data["market"].replace("KRW-", ""),
+                            "timestamp": orderbook_data["timestamp"],
+                            "orderbook": [
+                                {
+                                    "ask_price": unit["ask_price"],
+                                    "bid_price": unit["bid_price"],
+                                    "ask_size": unit["ask_size"],
+                                    "bid_size": unit["bid_size"]
+                                }
+                                for unit in orderbook_data["orderbook_units"]
+                            ]
+                        }
+                        result.append(standardized_orderbook)
+                    return result
         except aiohttp.ClientError as e:
-            logger.error(f"Network error while fetching orderbook for {ticker}: {e}")
+            logger.error(f"Network error while fetching orderbook for {tickers}: {e}")
             raise
         except Exception as e:
-            logger.error(f"Unexpected error while fetching orderbook for {ticker}: {e}")
+            logger.error(f"Unexpected error while fetching orderbook for {tickers}: {e}")
             raise
 
     @classmethod
@@ -131,9 +132,9 @@ class UpbitExchange(Exchange):
             Exception: API 호출 실패 시 발생하는 예외
         """
         try:
-            orderbook = await cls.get_ticker_orderbook(ticker)
-            if orderbook and orderbook["orderbook"]:
-                return {"ticker": ticker, "price": orderbook["orderbook"][0]["ask_price"]}
+            orderbook = await cls.get_ticker_orderbook([ticker])
+            if orderbook and orderbook[0]["orderbook"]:
+                return {"ticker": ticker, "price": orderbook[0]["orderbook"][0]["ask_price"]}
             return {"ticker": ticker, "price": None}
         except Exception as e:
             logger.error(f"Error fetching ticker price for {ticker}: {e}")

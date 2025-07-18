@@ -52,7 +52,7 @@ def reconnect_redis():
             logger.error(f"Retrying Redis connection: {e}")
             time.sleep(5)
 
-@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True)
+@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=False)
 def work_task(data, seed, retry_count=0):
     '''
     Celery 작업을 처리하는 함수입니다.

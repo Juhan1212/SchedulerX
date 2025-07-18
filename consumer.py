@@ -22,7 +22,7 @@ if redis_host is None:
 redis_client = redis.StrictRedis(
     host=redis_host,
     port=6379,
-    db=0,
+    db=1,
     socket_connect_timeout=5,  # 연결 타임아웃 설정
 )
 
@@ -40,7 +40,7 @@ def reconnect_redis():
             redis_client = redis.StrictRedis(
                 host=redis_host,
                 port=6379,
-                db=0,
+                db=1,
                 socket_connect_timeout=5,
                 retry_on_timeout=True
             )

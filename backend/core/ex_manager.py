@@ -78,7 +78,7 @@ class ExchangeManager:
             upbit_available_size = 0
             remaining_seed = seed
             
-            for unit in upbit_ob[0]["orderbook"]:
+            for unit in upbit_ob["orderbook"]:
                 ob_quote_volume = unit["ask_price"] * unit["ask_size"]
                 if remaining_seed >= ob_quote_volume:
                     upbit_available_size += unit["ask_size"]

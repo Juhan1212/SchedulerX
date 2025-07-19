@@ -99,7 +99,7 @@ if redis_host is None:
 connected_clients = set()
 
 async def redis_pubsub_listener():
-    redis = aioredis.from_url(f"redis://{redis_host}:6379/0")
+    redis = aioredis.from_url(f"redis://{redis_host}:6379/1")
     pubsub = redis.pubsub()
     await pubsub.subscribe("exchange_rate")
     

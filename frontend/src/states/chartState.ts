@@ -2,7 +2,7 @@ import { createStore } from "zustand";
 import {
   WebSocketAdapterFactory,
   type WebSocketParams,
-} from "../helpers/wsAdapter";
+} from "../helpers/wsAdapter/base";
 import type {
   CandleBarData,
   ExchangeType,

@@ -12,9 +12,11 @@ const exchange2Options = ["GATEIO", "BYBIT", "BINANCE", "OKX"];
 
 const Home = () => {
   const [exchange1, setExchange1] = useState<string>("UPBIT");
-  const [exchange2, setExchange2] = useState<string>("GATEIO");
-  const [tickers, setTickers] = useState<{ name: string }[]>([]);
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(); // 감시할 티커 선택
+  const [exchange2, setExchange2] = useState<string>("BYBIT");
+  const [tickers, setTickers] = useState<
+    { name: string; ex_rate?: string | null }[]
+  >([]);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>("XRP"); // 감시할 티커 선택
   const { addCryptoOption } = useCryptoOptionsStore();
   const navigate = useNavigate();
 
@@ -22,13 +24,16 @@ const Home = () => {
     // 공통 티커 데이터 가져오기
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/tickers", { credentials: "include" });
+        const res = await fetch(
+          `/api/tickers?exchange1=${exchange1}&exchange2=${exchange2}`,
+          { credentials: "include" }
+        );
         if (!res.ok) {
           // 네트워크 또는 기타 에러
           throw new Error(`Fetch error: ${res.status} ${res.statusText}`);
         }
         const data = await res.json();
-        setTickers(data); // res.data가 [{name: 'BTC'}, ...] 형태라고 가정
+        setTickers(data); // data: [{name: 'BTC', ex_rate: '1375'}, ...]
       } catch (err) {
         if (err instanceof TypeError) {
           // 네트워크 에러 (ex: 서버 다운, 인터넷 연결 문제)
@@ -56,8 +61,28 @@ const Home = () => {
           console.log("WebSocket connected");
         };
         socket.onmessage = (event) => {
-          // 메시지 수신 시 콘솔에 출력 (실제 사용처에 맞게 가공 가능)
-          console.log("[WS] message:", event.data);
+          try {
+            const msg = JSON.parse(event.data);
+            if (
+              msg.exchange1?.toUpperCase() === exchange1 &&
+              msg.exchange2?.toUpperCase() === exchange2 &&
+              Array.isArray(msg.results)
+            ) {
+              console.log(msg.results);
+              setTickers((prev) => {
+                // prev: 기존 상태, msg.results: 새로 들어온 티커들
+                const map = new Map(prev.map((t) => [t.name, t]));
+                msg.results.forEach(
+                  (item: { name: string; ex_rate?: string | null }) => {
+                    map.set(item.name, { ...map.get(item.name), ...item });
+                  }
+                );
+                return Array.from(map.values());
+              });
+            }
+          } catch (e) {
+            console.error("WebSocket message parsing error:", e);
+          }
         };
         socket.onerror = (err) => {
           console.error("WebSocket error", err);
@@ -66,6 +91,7 @@ const Home = () => {
           console.log("WebSocket closed", event.reason);
           // 재연결 로직 (3초 후 재시도)
           if (!event.wasClean) {
+            console.log("Reconnecting WebSocket...");
             reconnectTimeout = setTimeout(connect, 3000);
           }
         };
@@ -92,7 +118,7 @@ const Home = () => {
       // 실패 시 아무 동작 안 함
     };
     checkAuth();
-  }, [navigate]);
+  }, [navigate, exchange1, exchange2]);
 
   // 선택된 티커가 변경될 때마다 cryptoOptions에 추가
   useEffect(() => {

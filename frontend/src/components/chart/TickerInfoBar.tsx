@@ -60,14 +60,20 @@ const TickerInfoBar = memo(
     const handleMessage = useCallback(
       (data: TickerData | CandleBarData | PositionData) => {
         if (data.channel === "futures.tickers") {
-          data = data as TickerData;
-
-          settickerData({
-            change_percentage: data.change_percentage,
-            funding_rate: data.funding_rate,
-            mark_price: data.mark_price,
-            index_price: data.index_price,
-          });
+          const t = data as TickerData;
+          settickerData((prev) => ({
+            ...prev,
+            change_percentage:
+              t.change_percentage !== undefined
+                ? t.change_percentage
+                : prev.change_percentage,
+            funding_rate:
+              t.funding_rate !== undefined ? t.funding_rate : prev.funding_rate,
+            mark_price:
+              t.mark_price !== undefined ? t.mark_price : prev.mark_price,
+            index_price:
+              t.index_price !== undefined ? t.index_price : prev.index_price,
+          }));
         }
       },
       []

@@ -53,26 +53,35 @@ def reconnect_redis():
             time.sleep(5)
 
 @app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True)
-def work_task(data, seed, retry_count=0):
+def work_task(data, seed, exchange1, exchange2, retry_count=0):
     '''
     Celery 작업을 처리하는 함수입니다.
     Args:
         data (list): 티커 리스트
+        exchange1 (str): 첫 번째 거래소 이름
+        exchange2 (str): 두 번째 거래소 이름
     '''
     logger.info(f"수신된 데이터 : {data}")
 
     try:
         res = asyncio.run(exMgr.calc_exrate_batch(data, seed))
         if res:
-            redis_client.publish('exchange_rate', json.dumps(res))
+            # 거래소 조합별로 키를 구분하여 저장
             for item in res:
-                redis_client.set(f"{item['ticker']}", json.dumps(item["exchange_rate"]))
+                redis_key = f"{exchange1}_{exchange2}:{item['ticker']}"
+                redis_client.set(redis_key, json.dumps(item["exchange_rate"]))
+            # publish 시에도 조합 정보 포함
+            redis_client.publish('exchange_rate', json.dumps({
+                "exchange1": exchange1,
+                "exchange2": exchange2,
+                "results": res
+            }))
     except (ConnectionError, TimeoutError) as e:
         logger.error(f"Redis connection error: {e}")
         if retry_count < 3:  # 무한루프 방지
             reconnect_redis()
             logger.info("작업 전체를 재시도합니다.")
-            work_task(data, seed, retry_count + 1)
+            work_task(data, seed, exchange1, exchange2, retry_count + 1)
         else:
             logger.error("최대 재시도 횟수 초과. 작업을 중단합니다.")
             return

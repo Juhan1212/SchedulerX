@@ -82,10 +82,15 @@ async def renew_tickers():
         )
 
 @app.task
-def calculate_orderbook_exrate_task(tickers: list[str], seed: int):
+def calculate_orderbook_exrate_task(tickers: list[str], seed: int, exchange1: str, exchange2: str):
     """
     worker가 tickers를 받아서 환율을 계산하는 작업입니다.
     consumer.py에서 이 작업을 구현하고 실행합니다.
+    Args:
+        tickers (list): 티커 리스트
+        seed (int): 시드 금액
+        exchange1 (str): 첫 번째 거래소 이름
+        exchange2 (str): 두 번째 거래소 이름
     """
     pass
 
@@ -97,27 +102,33 @@ def renew_tickers_task():
     logger.info("티커 정보가 갱신되었습니다.")
 
 
+
 def schedule_workers_task():
     """
     스케줄러가 worker 작업을 스케줄링합니다.
+    upbit/bybit, upbit/gateio 조합 모두에 대해 작업을 생성합니다.
     """
-    tickers = get_common_tickers((exMgr.exchanges["upbit"], exMgr.exchanges["bybit"]))
-    
-    logger.debug(f"공통 진입가능 티커: {tickers}")
-    
-    if not tickers:
-        logger.info("공통 진입가능 티커가 없습니다.")
-        return
-    
+    exchange_pairs = [
+        ("upbit", "bybit"),
+        ("upbit", "gateio"),
+    ]
     batch_size = 10
-    tasks = []
     seed = get_admin_seed_money()
-    for i in range(0, len(tickers), batch_size):
-        batch = tickers[i:i + batch_size]
-        tasks.append(calculate_orderbook_exrate_task.s(batch, seed))
-    logger.info(f"스케줄링된 작업 수: {len(tasks)}")
-    
-    group(tasks).apply_async()
+    for ex1, ex2 in exchange_pairs:
+        total_tasks = 0
+        tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
+        logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
+        if not tickers:
+            logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
+            continue
+        tasks = []
+        for i in range(0, len(tickers), batch_size):
+            batch = tickers[i:i + batch_size]
+            tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
+        total_tasks += len(tasks)
+        if tasks:
+            group(tasks).apply_async()
+        logger.info(f"스케줄링된 작업 수: {total_tasks}")
     logger.info("작업이 브로커에 전달되었습니다.")
 
 

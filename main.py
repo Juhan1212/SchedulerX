@@ -112,7 +112,6 @@ async def redis_pubsub_listener():
             except Exception:
                 # 역직렬화 실패 시 원본 문자열 그대로 사용
                 data = raw_data
-            logger.info(f"Received message: {data}")
             # 연결된 모든 클라이언트에게 전송 (항상 문자열로 전송)
             await broadcast_to_clients(json.dumps(data, ensure_ascii=False))
 

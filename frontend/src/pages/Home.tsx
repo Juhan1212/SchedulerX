@@ -4,6 +4,8 @@ import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import CompChart from "../components/chart/CompChart";
+import { DataGrid } from "@mui/x-data-grid";
+import type { GridColDef } from "@mui/x-data-grid";
 import "../assets/styles/routes/trade.scss";
 import { useNavigate } from "react-router-dom";
 
@@ -11,6 +13,19 @@ const exchange1Options = ["UPBIT", "BITHUMB"];
 const exchange2Options = ["GATEIO", "BYBIT", "BINANCE", "OKX"];
 
 const Home = () => {
+  // DataGrid columns 정의 (함수 내부로 이동)
+  const columns: GridColDef[] = [
+    { field: "name", headerName: "티커", width: 120 },
+    {
+      field: "ex_rate",
+      headerName: "환율",
+      width: 180,
+      valueFormatter: (params) => {
+        if (!params) return "-";
+        return Number(params).toLocaleString();
+      },
+    },
+  ];
   const [exchange1, setExchange1] = useState<string>("UPBIT");
   const [exchange2, setExchange2] = useState<string>("BYBIT");
   const [tickers, setTickers] = useState<
@@ -68,7 +83,6 @@ const Home = () => {
               msg.exchange2?.toUpperCase() === exchange2 &&
               Array.isArray(msg.results)
             ) {
-              console.log(msg.results);
               setTickers((prev) => {
                 // prev: 기존 상태, msg.results: 새로 들어온 티커들
                 const map = new Map(prev.map((t) => [t.name, t]));
@@ -199,12 +213,24 @@ const Home = () => {
 
       {/* 선택된 티커의 차트 표시 */}
       {selectedTicker && (
-        <CompChart
-          exchange1={exchange1}
-          exchange2={exchange2}
-          symbol={selectedTicker}
-          interval="1m"
-        />
+        <>
+          <CompChart
+            exchange1={exchange1}
+            exchange2={exchange2}
+            symbol={selectedTicker}
+            interval="1m"
+          />
+          {tickers && tickers.length > 0 && (
+            <div style={{ height: 600, width: 400, marginTop: 24 }}>
+              <DataGrid
+                rows={tickers.map((t) => ({ id: t.name, ...t }))}
+                columns={columns}
+                disableRowSelectionOnClick
+                hideFooterPagination
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

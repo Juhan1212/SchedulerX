@@ -93,7 +93,7 @@ class UpbitExchange(Exchange):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:
                     if res.status != 200:
-                        raise Exception(f"Upbit API Error: {res.status} - {await res.text()}")
+                        raise Exception(f"Upbit API Error: {res.status} - {await res.json()}")
                     response = await res.json()
                     result = []
                     for orderbook_data in response:

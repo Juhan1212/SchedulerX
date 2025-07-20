@@ -88,7 +88,7 @@ class ExchangeManager:
         get_orderbook1 = getattr(ex1, 'get_ticker_orderbook')
         get_orderbook2 = getattr(ex2, 'get_ticker_orderbook')
         
-        exchange1_orderbooks = await get_orderbook1([tickers])
+        exchange1_orderbooks = await get_orderbook1(tickers)
         exchange2_orderbooks = await asyncio.gather(
             *[get_orderbook2(ticker) for ticker in tickers]
         )
@@ -96,7 +96,7 @@ class ExchangeManager:
         for ob1, ob2 in zip(exchange1_orderbooks, exchange2_orderbooks):
             available_size = 0
             remaining_seed = seed
-            for unit in ob1[0]["orderbook"]:
+            for unit in ob1["orderbook"]:
                 ob_quote_volume = unit["ask_price"] * unit["ask_size"]
                 if remaining_seed >= ob_quote_volume:
                     available_size += unit["ask_size"]

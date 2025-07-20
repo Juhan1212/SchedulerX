@@ -1,5 +1,8 @@
+import logging
 import asyncio
 from backend.exchanges import *
+
+logger = logging.getLogger(__name__)
 
 class ExchangeManager:
     def __init__(self):
@@ -116,6 +119,7 @@ class ExchangeManager:
             if available_size == 0 or quote_volume == 0:
                 continue
             exchange_rate = seed / quote_volume
+                
             results.append({
                 "name": ob1["ticker"],
                 "ex_rate": exchange_rate

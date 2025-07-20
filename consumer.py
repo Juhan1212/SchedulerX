@@ -68,8 +68,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
         if res:
             # 거래소 조합별로 키를 구분하여 저장
             for item in res:
-                redis_key = f"{exchange1}_{exchange2}:{item['ticker']}"
-                redis_client.set(redis_key, json.dumps(item["exchange_rate"]))
+                redis_key = f"{exchange1}_{exchange2}:{item['name']}"
+                redis_client.set(redis_key, json.dumps(item["ex_rate"]))
             # publish 시에도 조합 정보 포함
             redis_client.publish('exchange_rate', json.dumps({
                 "exchange1": exchange1,

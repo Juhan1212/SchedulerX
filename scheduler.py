@@ -173,5 +173,5 @@ if __name__ == "__main__":
     kst = timezone('Asia/Seoul')  # 한국 시간대 설정
     scheduler = BlockingScheduler(timezone=kst)
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
-    scheduler.add_job(schedule_workers_task, 'cron', minute='*/1')  # 매분마다 작업 스케줄링
+    scheduler.add_job(schedule_workers_task, 'interval', seconds=5)  # 5초마다 작업 스케줄링
     scheduler.start()

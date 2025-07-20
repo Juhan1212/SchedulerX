@@ -47,7 +47,7 @@ async def get_kline(
             to=to
         )
 
-        return to_candle_data(merged_sorted, ex1=results.get('upbit'), ex2=results.get('gateio'), usdt_candle=usdt_candle)
+        return to_candle_data(merged_sorted, ex1=results.get(exchanges[0]), ex2=results.get(exchanges[1]), usdt_candle=usdt_candle)
     except Exception as e:
         logger.error(f"Error fetching kline data: {e}")
         raise

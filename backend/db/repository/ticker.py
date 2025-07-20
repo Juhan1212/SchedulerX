@@ -22,7 +22,7 @@ class TickerRepository:
     def get_common_tickers(self, user_id: int, *exchanges):
         if not exchanges:
             return []
-        
+
         # UserTicker에 등록된 제외대상 ticker_name 목록
         exclude_tgt = (
             select(UserTicker.ticker_name)
@@ -36,7 +36,7 @@ class TickerRepository:
             .group_by(Ticker.name)
             .having(func.count_(func.distinct(Ticker.exchange)) == len(exchanges))
         )
-
+        
         query = (
             self.db.query(Ticker.name)
             .filter(

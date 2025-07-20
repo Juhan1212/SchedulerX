@@ -121,13 +121,13 @@ class BybitExchange(Exchange):
             raise
         
     @classmethod
-    async def get_ticker_candles(cls, ticker: str, interval: str = "1", count: int = 200):
+    async def get_ticker_candles(cls, ticker: str, interval: str = "1m", to: int = 0, count: int = 200):
         """
         Bybit에서 특정 티커의 캔들 데이터를 가져옵니다.
 
         Args:
             ticker (str): 티커 이름 (예: 'BTC')
-            interval (str): 캔들 간격 (예: 1,3,5,15,30,60,120,240,360,720,D,W,M)
+            interval (str): 캔들 간격 (예: '1m','3m','5m','15m','30m','1h','4h','8h','1d','1w')
             count (int): 가져올 캔들의 개수
 
         Returns:
@@ -136,8 +136,24 @@ class BybitExchange(Exchange):
         Raises:
             Exception: API 호출 실패 시 발생하는 예외
         """
+        # interval 변환: 프론트/내부 표준 → Bybit API 규격
+        interval_map = {
+            "1m": "1", 
+            "3m": "3", 
+            "5m": "5", 
+            "15m": "15", 
+            "30m": "30",
+            "1h": "60", 
+            "4h": "240", 
+            "8h": "480",
+            "1d": "D", 
+            "1w": "W"
+        }
+        bybit_interval = interval_map.get(interval, interval)
         try:
-            url = f"{cls.server_url}/v5/market/candles?category=linear&symbol={ticker}USDT&interval={interval}&limit={count}"
+            url = f"{cls.server_url}/v5/market/kline?category=linear&symbol={ticker}USDT&interval={bybit_interval}&limit={count}"
+            if to != 0:
+                url += f"&end={to * 1000}"  # Bybit expects milliseconds
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:
@@ -149,7 +165,7 @@ class BybitExchange(Exchange):
                         candles = response["result"]
                         standardized_candles = [
                             {
-                                "timestamp": candle[0],
+                                "timestamp": float(candle[0]) / 1000,  # Bybit timestamp is in milliseconds
                                 "open": float(candle[1]),
                                 "high": float(candle[2]),
                                 "low": float(candle[3]),

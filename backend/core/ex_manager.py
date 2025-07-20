@@ -103,8 +103,8 @@ class ExchangeManager:
             
             exchange_rate = seed / bybit_quote_volume
             results.append({
-                "ticker": upbit_ob["ticker"],
-                "exchange_rate": exchange_rate
+                "name": upbit_ob["ticker"],
+                "ex_rate": exchange_rate
             })
         return results
 

@@ -10,6 +10,7 @@ from pytz import timezone  # 추가
 from backend.core.ex_manager import exMgr
 from backend.exchanges.base import Exchange
 from backend.exchanges.bybit import BybitExchange
+from backend.exchanges.gateio import GateioExchange
 from backend.exchanges.upbit import UpbitExchange
 
 # 환경 변수 로드
@@ -151,15 +152,20 @@ if __name__ == "__main__":
     upbit_secret_key = os.getenv("UPBIT_SECRET_KEY")
     bybit_api_key = os.getenv("BYBIT_ACCESS_KEY")
     bybit_secret_key = os.getenv("BYBIT_SECRET_KEY")
+    gateio_api_key = os.getenv("GATEIO_API_KEY")
+    gateio_secret_key = os.getenv("GATEIO_SECRET_KEY")
     
     if not upbit_access_key or not upbit_secret_key:
         raise ValueError("UPBIT_ACCESS_KEY and UPBIT_SECRET_KEY must be set in environment variables.")
     if not bybit_api_key or not bybit_secret_key:
         raise ValueError("BYBIT_ACCESS_KEY and BYBIT_SECRET_KEY must be set in environment variables.")
+    if not gateio_api_key or not gateio_secret_key:
+        raise ValueError("GATEIO_API_KEY and GATEIO_SECRET_KEY must be set in environment variables.")
 
     exMgr.register_exchange("bybit", BybitExchange(bybit_api_key, bybit_secret_key))
     exMgr.register_exchange("upbit", UpbitExchange(upbit_access_key, upbit_secret_key))
-    
+    exMgr.register_exchange("gateio", GateioExchange(gateio_api_key, gateio_secret_key))
+
     # 초기 티커 갱신
     renew_tickers_task() 
     

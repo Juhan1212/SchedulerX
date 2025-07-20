@@ -61,10 +61,10 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
         exchange1 (str): 첫 번째 거래소 이름
         exchange2 (str): 두 번째 거래소 이름
     '''
-    logger.info(f"수신된 데이터 : {data}")
+    logger.info(f"수신된 데이터 : {data}, {exchange1}, {exchange2}")
 
     try:
-        res = asyncio.run(exMgr.calc_exrate_batch(data, seed))
+        res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))
         if res:
             # 거래소 조합별로 키를 구분하여 저장
             for item in res:

@@ -62,7 +62,7 @@ def get_common_tickers(exchanges: tuple[Exchange, Exchange]) -> list[str]:
             ON t1.name = t2.name
             WHERE t1.exchange = ? AND t2.exchange = ?
             AND t1.dw_pos_yn = 1
-            AND t1.name NOT IN ('USDT')
+            AND t1.name != 'USDT'
         """
         cursor.execute(query, (exchange1, exchange2))
         intersection_tickers = [row[0] for row in cursor.fetchall()]

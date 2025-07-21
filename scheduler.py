@@ -17,7 +17,7 @@ from backend.exchanges.upbit import UpbitExchange
 dotenv.load_dotenv()
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Celery 인스턴스 생성

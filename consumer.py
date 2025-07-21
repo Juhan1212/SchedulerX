@@ -8,7 +8,7 @@ import redis
 from dotenv import load_dotenv
 from backend.core.ex_manager import exMgr
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
 
 load_dotenv()
 

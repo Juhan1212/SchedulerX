@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import asyncio
 import sqlite3
 import logging
+import time
 import dotenv
 from celery import Celery, group
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -17,7 +18,7 @@ from backend.exchanges.upbit import UpbitExchange
 dotenv.load_dotenv()
 
 # 로깅 설정
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Celery 인스턴스 생성
@@ -109,6 +110,7 @@ def schedule_workers_task():
     스케줄러가 worker 작업을 스케줄링합니다.
     upbit/bybit, upbit/gateio 조합 모두에 대해 작업을 생성합니다.
     """
+    start_time = time.time()
     exchange_pairs = [
         ("upbit", "bybit"),
         ("upbit", "gateio"),
@@ -130,7 +132,7 @@ def schedule_workers_task():
         if tasks:
             group(tasks).apply_async()
         logger.info(f"스케줄링된 작업 수: {total_tasks}")
-    logger.info("작업이 브로커에 전달되었습니다.")
+    logger.info(f" - 스케줄러 작업 완료, 소요 시간: {time.time() - start_time:.2f}초")
 
 
 def get_admin_seed_money():
@@ -173,5 +175,5 @@ if __name__ == "__main__":
     kst = timezone('Asia/Seoul')  # 한국 시간대 설정
     scheduler = BlockingScheduler(timezone=kst)
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
-    scheduler.add_job(schedule_workers_task, 'interval', seconds=5)  # 5초마다 작업 스케줄링
+    scheduler.add_job(schedule_workers_task, 'interval', seconds=10)  # 10초마다 작업 스케줄링
     scheduler.start()

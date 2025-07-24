@@ -17,9 +17,19 @@ from backend.exchanges.upbit import UpbitExchange
 # 환경 변수 로드
 dotenv.load_dotenv()
 
-# 로깅 설정
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
+# 로깅 설정: logs/scheduler.log 파일과 콘솔 모두에 출력
+log_dir = "logs"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "scheduler.log")
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+file_handler = logging.FileHandler(log_file, encoding="utf-8")
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 # Celery 인스턴스 생성
 app = Celery('producer')
@@ -110,29 +120,32 @@ def schedule_workers_task():
     스케줄러가 worker 작업을 스케줄링합니다.
     upbit/bybit, upbit/gateio 조합 모두에 대해 작업을 생성합니다.
     """
-    start_time = time.time()
-    exchange_pairs = [
-        ("upbit", "bybit"),
-        ("upbit", "gateio"),
-    ]
-    batch_size = 10
-    seed = get_admin_seed_money()
-    for ex1, ex2 in exchange_pairs:
-        total_tasks = 0
-        tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
-        logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
-        if not tickers:
-            logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
-            continue
-        tasks = []
-        for i in range(0, len(tickers), batch_size):
-            batch = tickers[i:i + batch_size]
-            tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
-        total_tasks += len(tasks)
-        if tasks:
-            group(tasks).apply_async()
-        logger.info(f"스케줄링된 작업 수: {total_tasks}")
-    logger.info(f" - 스케줄러 작업 완료, 소요 시간: {time.time() - start_time:.2f}초")
+    try:
+        start_time = time.time()
+        exchange_pairs = [
+            ("upbit", "bybit"),
+            ("upbit", "gateio"),
+        ]
+        batch_size = 10
+        seed = get_admin_seed_money()
+        for ex1, ex2 in exchange_pairs:
+            total_tasks = 0
+            tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
+            logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
+            if not tickers:
+                logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
+                continue
+            tasks = []
+            for i in range(0, len(tickers), batch_size):
+                batch = tickers[i:i + batch_size]
+                tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
+            total_tasks += len(tasks)
+            if tasks:
+                group(tasks).apply_async()
+            logger.info(f"스케줄링된 작업 수: {total_tasks}")
+        logger.info(f" - 스케줄러 작업 완료, 소요 시간: {time.time() - start_time:.2f}초")
+    except Exception as e:
+        logger.error(f"스케줄러 작업 중 오류 발생: {e}")
 
 
 def get_admin_seed_money():

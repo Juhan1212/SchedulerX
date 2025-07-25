@@ -63,21 +63,25 @@ def get_common_tickers(exchanges: tuple[Exchange, Exchange]) -> list[str]:
     if len(exchanges) != 2:
         raise ValueError("공통 진입가능 티커는 2개의 거래소가 필요합니다.")
     
-    with get_db_cursor() as cursor:
-        exchange1 = exchanges[0].name
-        exchange2 = exchanges[1].name
-        query = """
-            SELECT t1.name
-            FROM tickers t1
-            INNER JOIN tickers t2
-            ON t1.name = t2.name
-            WHERE t1.exchange = ? AND t2.exchange = ?
-            AND t1.dw_pos_yn = 1
-            AND t1.name != 'USDT'
-        """
-        cursor.execute(query, (exchange1, exchange2))
-        intersection_tickers = [row[0] for row in cursor.fetchall()]
-        return intersection_tickers
+    try:
+        with get_db_cursor() as cursor:
+            exchange1 = exchanges[0].name
+            exchange2 = exchanges[1].name
+            query = """
+                SELECT t1.name
+                FROM tickers t1
+                INNER JOIN tickers t2
+                ON t1.name = t2.name
+                WHERE t1.exchange = ? AND t2.exchange = ?
+                AND t1.dw_pos_yn = 1
+                AND t1.name != 'USDT'
+            """
+            cursor.execute(query, (exchange1, exchange2))
+            intersection_tickers = [row[0] for row in cursor.fetchall()]
+            return intersection_tickers
+    except sqlite3.Error as e:
+        logger.error(f"DB 에러: {e}")
+        return []
 
 async def renew_tickers():
     """
@@ -131,7 +135,7 @@ def schedule_workers_task():
         for ex1, ex2 in exchange_pairs:
             total_tasks = 0
             tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
-            logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
+            logger.info(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
             if not tickers:
                 logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
                 continue
@@ -186,7 +190,10 @@ if __name__ == "__main__":
     
     # 스케줄러 설정
     kst = timezone('Asia/Seoul')  # 한국 시간대 설정
-    scheduler = BlockingScheduler(timezone=kst)
+    scheduler = BlockingScheduler(timezone=kst, job_defaults={
+        'coalesce': True,  # 중복된 작업을 하나로 합침
+        'misfire_grace_time': 10,  # 작업이 지연되었을 때 최대 10초까지 기다림
+    })
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
     scheduler.add_job(schedule_workers_task, 'interval', seconds=10)  # 10초마다 작업 스케줄링
     scheduler.start()

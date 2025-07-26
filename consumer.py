@@ -1,12 +1,17 @@
+from decimal import ROUND_DOWN, Decimal
 import json
+import math
 import asyncio
 import os
 import logging
 import time
+from typing import List
 from celery import Celery
 import redis
 from dotenv import load_dotenv
 from backend.core.ex_manager import exMgr
+from backend.exchanges.bybit import BybitExchange
+from backend.exchanges.upbit import UpbitExchange
 
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
 
@@ -65,11 +70,89 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
 
     try:
         res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))
+        usdt = asyncio.run(UpbitExchange.get_ticker_ob_price('USDT'))
+        usdt_price = usdt.get('price', 0)
+        if usdt_price == 0:
+            raise ValueError("USDT price is zero, cannot calculate exchange rate.")
         if res:
             # 거래소 조합별로 키를 구분하여 저장
             for item in res:
                 redis_key = f"{exchange1}_{exchange2}:{item['name']}"
                 redis_client.set(redis_key, json.dumps(item["ex_rate"]))
+                
+                if item['ex_rate'] < usdt_price * 0.99: # USDT 가격의 99% 이하인 경우
+                    if exchange2 == 'bybit':
+                        bybit_api_key = os.getenv('BYBIT_ACCESS_KEY')
+                        bybit_secret_key = os.getenv('BYBIT_SECRET_KEY')
+                        if not bybit_api_key or not bybit_secret_key:
+                            raise ValueError("BYBIT_ACCESS_KEY and BYBIT_SECRET_KEY must be set in environment variables.")
+                        bybit_service = BybitExchange(bybit_api_key, bybit_secret_key)
+
+                        # 포지션 유무 확인
+                        res = asyncio.run(bybit_service.get_position_info(item['name']))
+                        position = list(filter(lambda x: x.get('size', 0) > 0, res.get('list', [])))
+                        
+                        if len(position) > 0:
+                            # 포지션이 있는 경우, skip
+                            logger.info(f"포지션이 존재하여 작업을 건너뜁니다: {item['name']}")
+                            continue
+                        else:
+                            # 포지션이 없는 경우, upbit에서 KRW로 매수 후 체결된 volume만큼 bybit에서 매도
+                            upbit_api_key = os.getenv('UPBIT_ACCESS_KEY')
+                            upbit_secret_key = os.getenv('UPBIT_SECRET_KEY')
+                            if not upbit_api_key or not upbit_secret_key:
+                                raise ValueError("UPBIT_ACCESS_KEY and UPBIT_SECRET_KEY must be set in environment variables.")
+                            upbit_service = UpbitExchange(upbit_api_key, upbit_secret_key)
+
+                            # Upbit에서 KRW로 매수 주문 실행
+                            upbit_order = asyncio.run(upbit_service.order(item['name'], 'bid', seed))
+                            upbit_order_id = upbit_order.get('uuid')
+                            logger.info(f"Upbit 주문 ID: {upbit_order_id}")
+                            if not upbit_order_id:
+                                logger.error(f"Upbit 주문 실행 실패: {upbit_order}")
+                                return None
+
+                            # Upbit 주문내역 조회
+                            upbit_order_result: List[dict] = asyncio.run(upbit_service.get_orders(item['name'], upbit_order_id))
+                            upbit_order_volume = upbit_order_result[0].get('executed_volume')
+                            logger.info(f"Upbit 주문 체결량: {upbit_order_volume}")
+                            if not upbit_order_volume:
+                                logger.error(f"Upbit 주문 결과에서 volume을 찾을 수 없습니다: {upbit_order_result}")
+                                return None
+
+                            # Bybit 최소 주문 단위(lot size) 조회 
+                            lot_size = asyncio.run(bybit_service.get_lot_size(item['name']))
+                            logger.info(f"Bybit lot size: {lot_size}")
+                            if not lot_size:
+                                logger.error(f"Bybit lot size 정보를 가져올 수 없습니다: {item['name']}")
+                                return None
+
+                            # volume을 lot_size 단위로 내림(round down)
+                            rounded_volume = math.floor(float(upbit_order_volume) / lot_size) * lot_size
+                            logger.info(f"Rounded volume for Bybit order: {rounded_volume}")
+                            if rounded_volume <= 0:
+                                logger.error(f"Bybit 주문 가능한 최소 수량 미만: {upbit_order_volume} -> {rounded_volume}")
+                                return None
+
+                            # Bybit에서 rounded_volume만큼 매도 주문 실행
+                            bybit_order = asyncio.run(bybit_service.order(item['name'], 'ask', rounded_volume))
+                            bybit_order_id = bybit_order.get('result', {}).get('orderId')
+                            logger.info(f"Bybit 주문 ID: {bybit_order_id}")
+                            if not bybit_order_id:
+                                logger.error(f"Bybit 주문 실행 실패: {bybit_order}")
+                                return None
+                            
+                            # Bybit 주문내역 조회
+                            bybit_order_result: List[dict] = asyncio.run(bybit_service.get_orders(item['name'], bybit_order_id))
+                            price = Decimal(str(bybit_order_result[0].get('price', 0)))
+                            qty = Decimal(str(bybit_order_result[0].get('qty', 0)))
+                            bybit_order_usdt = (price * qty).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+
+                            seed_decimal = Decimal(str(seed))
+                            order_rate = (seed_decimal / bybit_order_usdt).quantize(Decimal('0.01'), rounding=ROUND_DOWN) if bybit_order_usdt else None
+                            logger.info(f"주문을 실행했습니다: {item['name']} KRW매수금액={seed_decimal} USDT매도금액={bybit_order_usdt} 주문환율={order_rate}")
+                            
+                            
             # publish 시에도 조합 정보 포함
             redis_client.publish('exchange_rate', json.dumps({
                 "exchange1": exchange1,

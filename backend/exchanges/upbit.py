@@ -5,6 +5,9 @@ import uuid
 import aiohttp
 import dotenv
 import jwt
+import uuid
+import hashlib
+from urllib.parse import urlencode, unquote
 from .base import Exchange
 
 dotenv.load_dotenv()
@@ -235,3 +238,117 @@ class UpbitExchange(Exchange):
             logger.error(f"Unexpected error while fetching deposit/withdrawal tickers: {e}")
             raise
 
+    async def order(self, ticker: str, side: str, seed: float, size: float = 0):
+        """
+        Upbit에서 지정가 주문을 실행합니다.
+
+        Args:
+            ticker (str): 티커 이름 (예: "BTC")
+            side (str): 주문 방향 ("bid" 또는 "ask")
+            price (float): 주문 가격
+            size (float): 주문 수량
+
+        Returns:
+            dict: 주문 결과 정보
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            obj = {
+                'market': f'KRW-{ticker}',
+                'side': side,
+                'identifier': str(uuid.uuid4())
+            }
+            
+            # 시장가 매수
+            if side == 'bid':
+                obj['ord_type'] = 'price'
+                obj['price'] = str(seed)
+                
+            # 시장가 매도
+            elif side == 'ask':
+                obj['ord_type'] = 'market'
+                obj['volume'] = str(size)
+            else:
+                raise ValueError("Invalid side: must be 'bid' or 'ask'")
+            
+            query_string = unquote(urlencode(obj, doseq=True)).encode("utf-8")
+            
+            m = hashlib.sha512()
+            m.update(query_string)
+            query_hash = m.hexdigest()
+
+            payload = {
+                'access_key': self.api_key,
+                'nonce': str(uuid.uuid4()),
+                'query_hash': query_hash,
+                'query_hash_alg': 'SHA512',
+            }
+
+            jwt_token = jwt.encode(payload, self.secret_key)
+            authorization = f"Bearer {jwt_token}"
+            headers = {
+                'Authorization': authorization,
+                'Content-Type': 'application/json'
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{self.server_url}/v1/orders", json=obj, headers=headers) as res:
+                    if res.status != 201:
+                        raise Exception(f"Upbit API Error: {res.status} - {await res.text()}")
+                    return await res.json()
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while placing order for {ticker}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while placing order for {ticker}: {e}")
+            raise
+        
+    async def get_orders(self, symbol: str, order_id: str):
+        """
+        Upbit에서 주문 정보를 가져옵니다.
+
+        Returns:
+            list[dict]: 주문 정보 리스트
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            params = {
+                'market': f'KRW-{symbol}',
+                'uuids[]': [order_id]
+            }
+            
+            query_string = unquote(urlencode(params, doseq=True)).encode("utf-8")
+            
+            m = hashlib.sha512()
+            m.update(query_string)
+            query_hash = m.hexdigest()
+            
+            payload = {
+                'access_key': self.api_key,
+                'nonce': str(uuid.uuid4()),
+                'query_hash': query_hash,
+                'query_hash_alg': 'SHA512',
+            }
+            
+            jwt_token = jwt.encode(payload, self.secret_key)
+            authorization = f"Bearer {jwt_token}"
+            headers = {
+                'Authorization': authorization,
+                'Content-Type': 'application/json'
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.server_url}/v1/orders/uuids", params=params, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Upbit API Error: {res.status} - {await res.text()}")
+                    return await res.json()
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching accounts: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching accounts: {e}")
+            raise

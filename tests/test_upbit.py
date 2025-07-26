@@ -1,3 +1,5 @@
+import json
+import os
 import aiohttp
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +8,11 @@ from backend.exchanges.upbit import UpbitExchange
 @pytest.fixture
 def upbit_service():
     # UpbitExchange 인스턴스를 생성합니다.
-    return UpbitExchange('test_api_key', 'test_api_secret')
+    api_key = os.getenv("UPBIT_ACCESS_KEY")
+    secret_key = os.getenv("UPBIT_SECRET_KEY")
+    if not api_key or not secret_key:
+        raise ValueError("UPBIT_ACCESS_KEY and UPBIT_SECRET_KEY must be set in environment variables.")
+    return UpbitExchange(api_key, secret_key)
 
 @pytest.mark.asyncio
 async def test_get_tickers_success(upbit_service):
@@ -125,3 +131,47 @@ async def test_get_ticker_price_success(upbit_service):
 
     # 결과 검증
     # assert ticker_price == {"ticker": "BTC", "price": 50000000.0}
+    
+@pytest.mark.asyncio
+async def test_order(upbit_service):    
+    # Upbit API의 주문 성공 응답을 모킹합니다.
+    # mock_order_response = {
+    #     "uuid": "12345678-1234-1234-1234-123456789012",
+    #     "side": "bid",
+    #     "price": 50000000.0,
+    #     "state": "done",
+    #     "created_at": "2023-01-01T00:00:00Z"
+    # }
+    # aiohttp.ClientSession.post = AsyncMock(return_value=MagicMock(
+    #     status=201,
+    #     json=AsyncMock(return_value=mock_order_response)
+    # ))
+
+    # order 호출
+    await upbit_service.order("XRP", "bid", 10000)
+    orders = await upbit_service.get_orders("XRP")
+    print(json.dumps(orders, indent=2))
+
+    # 결과 검증
+    # assert order_result["uuid"] == "12345678-1234-1234-1234-123456789012"
+    
+@pytest.mark.asyncio
+async def test_get_orders(upbit_service):
+    # Upbit API의 주문 목록 응답을 모킹합니다.
+    # mock_orders_response = [
+    #     {"uuid": "12345678-1234-1234-1234-123456789012", "side": "bid", "price": 50000000.0, "state": "done"},
+    #     {"uuid": "87654321-4321-4321-4321-210987654321", "side": "ask", "price": 51000000.0, "state": "cancelled"}
+    # ]
+    # aiohttp.ClientSession.get = AsyncMock(return_value=MagicMock(
+    #     status=200,
+    #     json=AsyncMock(return_value=mock_orders_response)
+    # ))
+
+    # get_orders 호출
+    orders = await upbit_service.get_orders("XRP")
+    print(json.dumps(orders, indent=2))
+
+    # 결과 검증
+    # assert len(orders) == 2
+    # assert orders[0]["uuid"] == "12345678-1234-1234-1234-123456789012"
+    

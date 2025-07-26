@@ -3,11 +3,18 @@ import pytest
 from backend.exchanges.bybit import BybitExchange
 from unittest.mock import AsyncMock, MagicMock
 import json
+import os
+
+api_key = os.getenv('BYBIT_ACCESS_KEY')
+secret_key = os.getenv('BYBIT_SECRET_KEY')
 
 @pytest.fixture
 def bybit_service():
+    if not api_key or not secret_key:
+        raise ValueError("BYBIT_API_KEY and BYBIT_SECRET_KEY must be set in environment variables.")
+    
     # BybitExchange 인스턴스를 생성하고, HTTP 클라이언트를 모킹합니다.
-    return BybitExchange('test_api_key', 'test_api_secret')
+    return BybitExchange(api_key, secret_key)
     # exchange.client = MagicMock()  # HTTP 클라이언트를 모킹
     
 @pytest.mark.asyncio
@@ -69,3 +76,76 @@ async def test_get_orderbook_success(bybit_service):
     
     # 결과 검증
     # assert orderbook == mock_orderbook_response["result"]["orderBook"]
+    
+@pytest.mark.asyncio
+async def test_order(bybit_service):
+    # Bybit API의 주문 성공 응답을 모킹합니다.
+    # mock_order_response = {
+    #     "retCode": 0,
+    #     "result": {
+    #         "orderId": "1234567890",
+    #         "symbol": "BTCUSDT",
+    #         "side": "Buy",
+    #         "price": 50000,
+    #         "qty": 1
+    #     }
+    # }
+    # aiohttp.ClientSession.post = AsyncMock(return_value=MagicMock(
+    #     status=200,
+    #     json=AsyncMock(return_value=mock_order_response)
+    # ))
+
+    # order 호출
+    order_result = await bybit_service.order("BNB", "ask", 0.5)
+    
+    print(order_result)
+    
+    # 결과 검증
+    # assert order_result["retCode"] == 0
+    
+@pytest.mark.asyncio
+async def test_get_position_info(bybit_service):
+    # Bybit API의 포지션 정보 응답을 모킹합니다.
+    # mock_position_response = {
+    #     "retCode": 0,
+    #     "result": {
+    #         "list": [
+    #             {"symbol": "BTCUSDT", "side": "Buy", "size": 1, "entryPrice": 50000},
+    #             {"symbol": "ETHUSDT", "side": "Sell", "size": 2, "entryPrice": 3000}
+    #         ]
+    #     }
+    # }
+    # aiohttp.ClientSession.get = AsyncMock(return_value=MagicMock(
+    #     status=200,
+    #     json=AsyncMock(return_value=mock_position_response)
+    # ))
+
+    # get_position_info 호출
+    positions = await bybit_service.get_position_info("XRP")
+    
+    print(json.dumps(positions, indent=2))
+    
+    # 결과 검증
+    # assert len(positions) > 0
+    
+@pytest.mark.asyncio
+async def test_get_lot_size(bybit_service):
+    # Bybit API의 최소 주문 단위(lot size) 응답을 모킹합니다.
+    # mock_lot_size_response = {
+    #     "retCode": 0,
+    #     "result": {
+    #         "lotSize": 0.01
+    #     }
+    # }
+    # aiohttp.ClientSession.get = AsyncMock(return_value=MagicMock(
+    #     status=200,
+    #     json=AsyncMock(return_value=mock_lot_size_response)
+    # ))
+
+    # get_lot_size 호출
+    lot_size = await bybit_service.get_lot_size("ETH")
+    
+    print(lot_size)
+    
+    # 결과 검증
+    # assert lot_size == 0.01

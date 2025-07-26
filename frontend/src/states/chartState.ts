@@ -19,6 +19,7 @@ interface WebSocketState {
   socket: WebSocket | null;
   reconnectTimeout: NodeJS.Timeout | null;
   isConnected: boolean;
+  isReconnecting: boolean;
 
   setExchange: (exchange: string) => void;
   setSymbol: (symbol: string) => void;
@@ -59,6 +60,7 @@ export const createWebSocketStore = (initialState: Partial<WebSocketState>) =>
     socket: null,
     reconnectTimeout: null,
     isConnected: false,
+    isReconnecting: false,
 
     setExchange: (exchange) => set({ exchange }),
     setSymbol: (symbol) => {
@@ -69,9 +71,12 @@ export const createWebSocketStore = (initialState: Partial<WebSocketState>) =>
     },
     setInterval: (interval) => {
       // 인터벌 변경: 상태만 변경 후 ws 재연결
-      set({ interval });
+      set({ interval, isReconnecting: true });
       get().disconnectWebSocket();
-      get().connectWebSocket();
+      setTimeout(() => {
+        get().connectWebSocket();
+        set({ isReconnecting: false });
+      }, 10000); // 10초(10000ms) 대기 후 재연결
     },
 
     addMessageListener: (listener) => {

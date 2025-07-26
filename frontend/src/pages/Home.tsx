@@ -36,6 +36,7 @@ const Home = () => {
     { name: string; ex_rate?: string | null }[]
   >([]);
   const [selectedTicker, setSelectedTicker] = useState<string | null>("XRP"); // 감시할 티커 선택
+  const [isTickerChanging, setIsTickerChanging] = useState(false);
   const { addCryptoOption } = useCryptoOptionsStore();
   const navigate = useNavigate();
 
@@ -266,7 +267,13 @@ const Home = () => {
           }
           onInputChange={(_, newInputValue) => {
             const match = tickers.find((t) => t.name === newInputValue);
-            if (match) setSelectedTicker(match.name);
+            if (match) {
+              setIsTickerChanging(true);
+              setTimeout(() => {
+                setSelectedTicker(match.name);
+                setIsTickerChanging(false);
+              }, 10000); // 10초 대기 후 티커 변경
+            }
           }}
           renderInput={(params) => (
             <TextField
@@ -279,8 +286,54 @@ const Home = () => {
         />
       </Stack>
 
+      {isTickerChanging && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(19, 18, 21, 0.7)",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                border: "8px solid #eee",
+                borderTop: "8px solid #6c63ff",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+            <span
+              style={{ color: "#eee", marginTop: "16px", fontSize: "1.2rem" }}
+            >
+              티커 변경 중...
+            </span>
+          </div>
+          <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+        </div>
+      )}
       {/* 선택된 티커의 차트 표시 */}
-      {selectedTicker && (
+      {selectedTicker && !isTickerChanging && (
         <>
           <CompChart
             exchange1={exchange1}

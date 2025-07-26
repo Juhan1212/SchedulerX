@@ -135,7 +135,7 @@ def schedule_workers_task():
         for ex1, ex2 in exchange_pairs:
             total_tasks = 0
             tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
-            logger.info(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
+            logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
             if not tickers:
                 logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
                 continue
@@ -146,8 +146,7 @@ def schedule_workers_task():
             total_tasks += len(tasks)
             if tasks:
                 group(tasks).apply_async()
-            logger.info(f"스케줄링된 작업 수: {total_tasks}")
-        logger.info(f" - 스케줄러 작업 완료, 소요 시간: {time.time() - start_time:.2f}초")
+        logger.info(f"schedule_workers_task 스케줄러 broker publish 완료, 소요 시간: {time.time() - start_time:.2f}초")
     except Exception as e:
         logger.error(f"스케줄러 작업 중 오류 발생: {e}")
 

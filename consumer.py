@@ -14,8 +14,6 @@ from backend.core.ex_manager import exMgr
 from backend.exchanges.bybit import BybitExchange
 from backend.exchanges.upbit import UpbitExchange
 
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
-
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -74,7 +72,7 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
         exchange1 (str): 첫 번째 거래소 이름
         exchange2 (str): 두 번째 거래소 이름
     '''
-    logger.info(f"수신된 데이터 : {data}, {exchange1}, {exchange2}")
+    logger.debug(f"수신된 데이터 : {data}, {exchange1}, {exchange2}")
 
     try:
         res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))

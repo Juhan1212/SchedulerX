@@ -1,0 +1,31 @@
+version: 1
+
+formatters:
+  simple:
+    format: "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s"
+
+handlers:
+  file_handler:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: INFO
+    formatter: simple
+    filename: logs/celery.log
+    when: midnight
+    interval: 1
+    backupCount: 7
+    encoding: utf8
+
+loggers:
+  consumer:
+    level: INFO
+    handlers: [file_handler]
+    propagate: no
+
+  scheduler:
+    level: INFO
+    handlers: [file_handler]
+    propagate: no
+
+root:
+  level: INFO
+  handlers: [file_handler]

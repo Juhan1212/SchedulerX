@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 import redis.asyncio as aioredis
 
 # YAML 파일 경로
-LOGGING_CONFIG_PATH = Path(__file__).resolve().parent / "logging_config.yaml"
+LOGGING_CONFIG_PATH = Path(__file__).resolve().parent / "app_logging_config.yaml"
 
 # YAML 파일에서 로깅 설정 로드
 def setup_logging():

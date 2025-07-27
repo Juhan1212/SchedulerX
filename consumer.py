@@ -1,21 +1,57 @@
 from decimal import ROUND_DOWN, Decimal
 import json
 import math
+from pathlib import Path
 from cachetools import TTLCache, cached
 import asyncio
 import os
 import logging
+import logging.config
 import time
 from typing import List
 from celery import Celery
 import redis
 from dotenv import load_dotenv
+import yaml
 from backend.core.ex_manager import exMgr
 from backend.exchanges.bybit import BybitExchange
 from backend.exchanges.upbit import UpbitExchange
 
 load_dotenv()
 
+# YAML 파일 경로
+LOGGING_CONFIG_PATH = Path(__file__).resolve().parent / "celery_logging_config.yaml"
+
+# YAML 파일에서 로깅 설정 로드
+def setup_logging():
+    """
+    YAML 파일에서 로깅 설정을 로드합니다.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: YAML 파일이 존재하지 않을 경우.
+        yaml.YAMLError: YAML 파일 파싱 중 오류가 발생한 경우.
+    """
+    try:
+        with open(LOGGING_CONFIG_PATH, "r", encoding="utf-8") as file:
+            config = yaml.safe_load(file)
+            logging.config.dictConfig(config)
+    except FileNotFoundError as fnf_error:
+        print(f"Logging config file not found: {fnf_error}")
+        logging.basicConfig(level=logging.INFO)
+    except yaml.YAMLError as yaml_error:
+        print(f"Error parsing YAML logging config: {yaml_error}")
+        logging.basicConfig(level=logging.INFO)
+
+# 로깅 설정 초기화
+setup_logging()
+
+# 로거 생성
 logger = logging.getLogger(__name__)
 
 # Redis 클라이언트 생성 (글로벌 네임스페이스)
@@ -30,10 +66,7 @@ redis_client = redis.StrictRedis(
     socket_connect_timeout=5,  # 연결 타임아웃 설정
 )
 
-# Celery 인스턴스 생성
-app = Celery('consumer')
-app.config_from_object('celeryconfig')
-
+# Redis 재연결 함수
 def reconnect_redis():
     global redis_client
     while True:
@@ -56,6 +89,10 @@ def reconnect_redis():
             logger.error(f"Retrying Redis connection: {e}")
             time.sleep(5)
 
+# Celery 인스턴스 생성
+app = Celery('consumer')
+app.config_from_object('celeryconfig')
+
 # 테더 가격 호출 api 캐시설정            
 usdt_cache = TTLCache(maxsize=10, ttl=1)
 
@@ -75,12 +112,13 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
     logger.debug(f"수신된 데이터 : {data}, {exchange1}, {exchange2}")
 
     try:
-        res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))
         # 테더 가격 1초 캐시 적용되어있음.
         usdt = get_usdt_ticker_ob_price() 
         usdt_price = usdt.get('price', 0)
         if usdt_price == 0:
-            raise ValueError("USDT price is zero, cannot calculate exchange rate.")
+            raise ValueError("테더 가격이 0입니다. API 호출이 실패했을 수 있습니다.")
+        
+        res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))
         if res:
             # 거래소 조합별로 키를 구분하여 저장
             for item in res:

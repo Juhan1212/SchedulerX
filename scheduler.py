@@ -1,13 +1,16 @@
 import os
 from contextlib import contextmanager
 import asyncio
+from pathlib import Path
 import sqlite3
 import logging
+import logging.config
 import time
 import dotenv
 from celery import Celery, group
 from apscheduler.schedulers.blocking import BlockingScheduler
-from pytz import timezone  # 추가
+from pytz import timezone
+import yaml  # 추가
 from backend.core.ex_manager import exMgr
 from backend.exchanges.base import Exchange
 from backend.exchanges.bybit import BybitExchange
@@ -17,19 +20,40 @@ from backend.exchanges.upbit import UpbitExchange
 # 환경 변수 로드
 dotenv.load_dotenv()
 
-# 로깅 설정: logs/scheduler.log 파일과 콘솔 모두에 출력
-log_dir = "logs"
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "scheduler.log")
+# YAML 파일 경로
+LOGGING_CONFIG_PATH = Path(__file__).resolve().parent / "celery_logging_config.yaml"
 
+# YAML 파일에서 로깅 설정 로드
+def setup_logging():
+    """
+    YAML 파일에서 로깅 설정을 로드합니다.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: YAML 파일이 존재하지 않을 경우.
+        yaml.YAMLError: YAML 파일 파싱 중 오류가 발생한 경우.
+    """
+    try:
+        with open(LOGGING_CONFIG_PATH, "r", encoding="utf-8") as file:
+            config = yaml.safe_load(file)
+            logging.config.dictConfig(config)
+    except FileNotFoundError as fnf_error:
+        print(f"Logging config file not found: {fnf_error}")
+        logging.basicConfig(level=logging.INFO)
+    except yaml.YAMLError as yaml_error:
+        print(f"Error parsing YAML logging config: {yaml_error}")
+        logging.basicConfig(level=logging.INFO)
+
+# 로깅 설정 초기화
+setup_logging()
+
+# 로거 생성
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-file_handler = logging.FileHandler(log_file, encoding="utf-8")
-file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 # Celery 인스턴스 생성
 app = Celery('producer')

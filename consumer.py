@@ -1,6 +1,7 @@
 from decimal import ROUND_DOWN, Decimal
 import json
 import math
+from cachetools import TTLCache, cached
 import asyncio
 import os
 import logging
@@ -57,6 +58,13 @@ def reconnect_redis():
             logger.error(f"Retrying Redis connection: {e}")
             time.sleep(5)
 
+# 테더 가격 호출 api 캐시설정            
+usdt_cache = TTLCache(maxsize=10, ttl=1)
+
+@cached(usdt_cache)
+def get_usdt_ticker_ob_price():
+    return asyncio.run(UpbitExchange.get_ticker_ob_price('USDT'))
+
 @app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True)
 def work_task(data, seed, exchange1, exchange2, retry_count=0):
     '''
@@ -70,7 +78,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
 
     try:
         res = asyncio.run(exMgr.calc_exrate_batch(data, seed, exchange1, exchange2))
-        usdt = asyncio.run(UpbitExchange.get_ticker_ob_price('USDT'))
+        # 테더 가격 1초 캐시 적용되어있음.
+        usdt = get_usdt_ticker_ob_price() 
         usdt_price = usdt.get('price', 0)
         if usdt_price == 0:
             raise ValueError("USDT price is zero, cannot calculate exchange rate.")

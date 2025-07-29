@@ -26,6 +26,11 @@ loggers:
     handlers: [file_handler]
     propagate: no
 
+  apscheduler: # for trouble shooting
+    level: DEBUG
+    handlers: [file_handler]
+    propagate: no
+
 root:
   level: INFO
   handlers: [file_handler]

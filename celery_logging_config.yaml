@@ -7,7 +7,7 @@ formatters:
 handlers:
   file_handler:
     class: logging.handlers.TimedRotatingFileHandler
-    level: INFO
+    level: DEBUG
     formatter: simple
     filename: logs/celery.log
     when: midnight

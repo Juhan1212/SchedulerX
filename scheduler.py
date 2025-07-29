@@ -8,7 +8,7 @@ import logging.config
 import time
 import dotenv
 from celery import Celery, group
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from pytz import timezone
 import yaml  # 추가
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     
     # 스케줄러 설정
     kst = timezone('Asia/Seoul')  # 한국 시간대 설정
-    scheduler = AsyncIOScheduler(executors=executors, timezone=kst, job_defaults={
+    scheduler = BlockingScheduler(executors=executors, timezone=kst, job_defaults={
         'coalesce': True,  # 중복된 작업을 하나로 합침
         'misfire_grace_time': 10,  # 작업이 지연되었을 때 최대 10초까지 기다림
     })

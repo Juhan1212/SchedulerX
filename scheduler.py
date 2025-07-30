@@ -170,7 +170,9 @@ def schedule_workers_task():
                 tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
             total_tasks += len(tasks)
             if tasks:
+                logger.info("before group apply_async")
                 group(tasks).apply_async()
+                logger.info("after group apply_async")
         logger.info(f"{total_tasks}개 tasks를 broker publish 완료, 소요 시간: {time.time() - start_time:.2f}초")
     except Exception as e:
         logger.error(f"스케줄러 작업 중 오류 발생: {e}")
@@ -221,6 +223,7 @@ if __name__ == "__main__":
     scheduler = BlockingScheduler(executors=executors, timezone=kst, job_defaults={
         'coalesce': True,  # 중복된 작업을 하나로 합침
         'misfire_grace_time': 10,  # 작업이 지연되었을 때 최대 10초까지 기다림
+        'max_instances': 2,  # 동시에 실행되는 작업의 최대 인스턴스 수
     })
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
     scheduler.add_job(schedule_workers_task, 'interval', seconds=5)  # 10초마다 작업 스케줄링

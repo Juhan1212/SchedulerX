@@ -124,8 +124,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
             for item in res:
                 redis_key = f"{exchange1}_{exchange2}:{item['name']}"
                 redis_client.set(redis_key, json.dumps(item["ex_rate"]))
-                
-                if item['ex_rate'] < usdt_price * 0.99: # USDT 가격의 99% 이하인 경우
+
+                if item['ex_rate'] < usdt_price * 0.995: # USDT 가격의 99.5% 이하인 경우
                     if exchange2 == 'bybit':
                         bybit_api_key = os.getenv('BYBIT_ACCESS_KEY')
                         bybit_secret_key = os.getenv('BYBIT_SECRET_KEY')

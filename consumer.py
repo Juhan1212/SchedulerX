@@ -100,7 +100,7 @@ usdt_cache = TTLCache(maxsize=10, ttl=1)
 def get_usdt_ticker_ob_price():
     return asyncio.run(UpbitExchange.get_ticker_ob_price('USDT'))
 
-@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True)
+@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True, soft_time_limit=5)
 def work_task(data, seed, exchange1, exchange2, retry_count=0):
     '''
     Celery 작업을 처리하는 함수입니다.

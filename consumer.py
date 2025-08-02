@@ -135,8 +135,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
 
                         # 포지션 유무 확인
                         res = asyncio.run(bybit_service.get_position_info(item['name']))
-                        position = list(filter(lambda x: x.get('size', 0) > 0, res.get('list', [])))
-                        
+                        position = list(filter(lambda x: float(x.get('size', 0)) > 0, res.get('list', [])))
+
                         if len(position) > 0:
                             # 포지션이 있는 경우, skip
                             logger.info(f"포지션이 존재하여 작업을 건너뜁니다: {item['name']}")

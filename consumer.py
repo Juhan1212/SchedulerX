@@ -16,6 +16,7 @@ import yaml
 from backend.core.ex_manager import exMgr
 from backend.exchanges.bybit import BybitExchange
 from backend.exchanges.upbit import UpbitExchange
+from backend.utils.telegram import send_telegram
 
 load_dotenv()
 
@@ -111,6 +112,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
     '''
     logger.debug(f"수신된 데이터 : {data}, {exchange1}, {exchange2}")
 
+    message = ""
+
     try:
         # 테더 가격 1초 캐시 적용되어있음.
         usdt = get_usdt_ticker_ob_price() 
@@ -126,6 +129,9 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
                 redis_client.set(redis_key, json.dumps(item["ex_rate"]))
 
                 if item['ex_rate'] < usdt_price * 0.995: # USDT 가격의 99.5% 이하인 경우
+                    logger.info(f"거래소 {exchange1}와 {exchange2}의 티커 {item['name']}의 환율 {item['ex_rate']}이 테더 가격 {usdt_price} 보다 낮습니다")
+                    message = f"거래소 {exchange1}와 {exchange2}의 티커 {item['name']}의 환율 {item['ex_rate']}이 테더 가격 {usdt_price} 보다 낮습니다"
+                    
                     if exchange2 == 'bybit':
                         bybit_api_key = os.getenv('BYBIT_ACCESS_KEY')
                         bybit_secret_key = os.getenv('BYBIT_SECRET_KEY')
@@ -140,6 +146,7 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
                         if len(position) > 0:
                             # 포지션이 있는 경우, skip
                             logger.info(f"포지션이 존재하여 작업을 건너뜁니다: {item['name']}")
+                            message += f"\n포지션이 존재하여 작업을 건너뜁니다: {item['name']}"
                             continue
                         else:
                             # 포지션이 없는 경우, upbit에서 KRW로 매수 후 체결된 volume만큼 bybit에서 매도
@@ -148,43 +155,55 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
                             if not upbit_api_key or not upbit_secret_key:
                                 raise ValueError("UPBIT_ACCESS_KEY and UPBIT_SECRET_KEY must be set in environment variables.")
                             upbit_service = UpbitExchange(upbit_api_key, upbit_secret_key)
+                            
+                            continue # 임시로 continue로 처리, 실제 주문 로직은 아래에 있음
 
                             # Upbit에서 KRW로 매수 주문 실행
                             upbit_order = asyncio.run(upbit_service.order(item['name'], 'bid', seed))
                             upbit_order_id = upbit_order.get('uuid')
                             logger.info(f"Upbit 주문 ID: {upbit_order_id}")
+                            message += f"\nUpbit 주문 ID: {upbit_order_id}"
                             if not upbit_order_id:
                                 logger.error(f"Upbit 주문 실행 실패: {upbit_order}")
+                                message += f"\nUpbit 주문 실행 실패: {upbit_order}"
                                 return None
 
                             # Upbit 주문내역 조회
                             upbit_order_result: List[dict] = asyncio.run(upbit_service.get_orders(item['name'], upbit_order_id))
                             upbit_order_volume = upbit_order_result[0].get('executed_volume')
                             logger.info(f"Upbit 주문 체결량: {upbit_order_volume}")
+                            message += f"\nUpbit 주문 체결량: {upbit_order_volume}"
                             if not upbit_order_volume:
                                 logger.error(f"Upbit 주문 결과에서 volume을 찾을 수 없습니다: {upbit_order_result}")
+                                message += f"\nUpbit 주문 결과에서 volume을 찾을 수 없습니다: {upbit_order_result}"
                                 return None
 
                             # Bybit 최소 주문 단위(lot size) 조회 
                             lot_size = asyncio.run(bybit_service.get_lot_size(item['name']))
                             logger.info(f"Bybit lot size: {lot_size}")
+                            message += f"\nBybit lot size: {lot_size}"
                             if not lot_size:
                                 logger.error(f"Bybit lot size 정보를 가져올 수 없습니다: {item['name']}")
+                                message += f"\nBybit lot size 정보를 가져올 수 없습니다: {item['name']}"
                                 return None
 
                             # volume을 lot_size 단위로 내림(round down)
                             rounded_volume = math.floor(float(upbit_order_volume) / lot_size) * lot_size
                             logger.info(f"Rounded volume for Bybit order: {rounded_volume}")
+                            message += f"\nRounded volume for Bybit order: {rounded_volume}"
                             if rounded_volume <= 0:
                                 logger.error(f"Bybit 주문 가능한 최소 수량 미만: {upbit_order_volume} -> {rounded_volume}")
+                                message += f"\nBybit 주문 가능한 최소 수량 미만: {upbit_order_volume} -> {rounded_volume}"
                                 return None
 
                             # Bybit에서 rounded_volume만큼 매도 주문 실행
                             bybit_order = asyncio.run(bybit_service.order(item['name'], 'ask', rounded_volume))
                             bybit_order_id = bybit_order.get('result', {}).get('orderId')
                             logger.info(f"Bybit 주문 ID: {bybit_order_id}")
+                            message += f"\nBybit 주문 ID: {bybit_order_id}"
                             if not bybit_order_id:
                                 logger.error(f"Bybit 주문 실행 실패: {bybit_order}")
+                                message += f"\nBybit 주문 실행 실패: {bybit_order}"
                                 return None
                             
                             # Bybit 주문내역 조회
@@ -196,6 +215,7 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
                             seed_decimal = Decimal(str(seed))
                             order_rate = (seed_decimal / bybit_order_usdt).quantize(Decimal('0.01'), rounding=ROUND_DOWN) if bybit_order_usdt else None
                             logger.info(f"주문을 실행했습니다: {item['name']} KRW매수금액={seed_decimal} USDT매도금액={bybit_order_usdt} 주문환율={order_rate}")
+                            message += f"\n주문을 실행했습니다: {item['name']} KRW매수금액={seed_decimal} USDT매도금액={bybit_order_usdt} 주문환율={order_rate}"
                             
                             
             # publish 시에도 조합 정보 포함
@@ -213,6 +233,11 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
         else:
             logger.error("최대 재시도 횟수 초과. 작업을 중단합니다.")
             return
+    finally:
+        # 작업 완료 후 Telegram 메시지 전송
+        if message:
+            asyncio.run(send_telegram(message))
+            logger.info(f"Telegram 메시지를 전송했습니다: {message}")
 
     logger.info("작업이 성공적으로 완료되었습니다.")
     

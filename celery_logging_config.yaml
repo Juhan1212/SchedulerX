@@ -31,6 +31,11 @@ loggers:
     handlers: [file_handler]
     propagate: no
 
+  celery:
+    level: DEBUG
+    handlers: [file_handler]
+    propagate: no
+
 root:
   level: INFO
   handlers: [file_handler]

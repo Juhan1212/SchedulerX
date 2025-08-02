@@ -75,7 +75,7 @@ async def upsert_tickers(exchange):
     데이터베이스에 티커를 삽입합니다.
     """
     with get_db_cursor() as cursor:
-        tickers = await exMgr.exchanges[exchange].get_tickers()
+        tickers = await exMgr.exchanges[exchange].get_tickers() 
         cursor.executemany(
             "INSERT OR IGNORE INTO tickers (exchange, name) VALUES (?, ?)",
             [(exchange, ticker) for ticker in tickers]
@@ -171,7 +171,7 @@ def schedule_workers_task():
             total_tasks += len(tasks)
             if tasks:
                 logger.info("before group apply_async")
-                group(tasks).apply_async()
+                group(tasks).apply_async(retry=False, expires=5)
                 logger.info("after group apply_async")
         logger.info(f"{total_tasks}개 tasks를 broker publish 완료, 소요 시간: {time.time() - start_time:.2f}초")
     except Exception as e:
@@ -222,8 +222,7 @@ if __name__ == "__main__":
     kst = timezone('Asia/Seoul')  # 한국 시간대 설정
     scheduler = BlockingScheduler(executors=executors, timezone=kst, job_defaults={
         'coalesce': True,  # 중복된 작업을 하나로 합침
-        'misfire_grace_time': 10,  # 작업이 지연되었을 때 최대 10초까지 기다림
-        'max_instances': 2,  # 동시에 실행되는 작업의 최대 인스턴스 수
+        'misfire_grace_time': 10  # 작업이 지연되었을 때 최대 10초까지 기다림
     })
     scheduler.add_job(renew_tickers_task, 'cron', minute='*/5')  # 5분마다 실행
     scheduler.add_job(schedule_workers_task, 'interval', seconds=5)  # 10초마다 작업 스케줄링

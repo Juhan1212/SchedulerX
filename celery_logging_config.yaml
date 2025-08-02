@@ -2,7 +2,7 @@ version: 1
 
 formatters:
   simple:
-    format: "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s"
+    format: "%(asctime)s - %(threadName)s - %(name)s:%(lineno)d - %(levelname)s - %(funcName)s - %(message)s"
 
 handlers:
   file_handler:

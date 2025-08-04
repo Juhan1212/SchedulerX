@@ -147,33 +147,44 @@ def renew_tickers_task():
 def schedule_workers_task():
     """
     스케줄러가 worker 작업을 스케줄링합니다.
+    Celery publish를 asyncio loop의 run_in_executor로 비동기 실행하여
+    스케줄러 스레드풀 block을 방지합니다.
     upbit/bybit, upbit/gateio 조합 모두에 대해 작업을 생성합니다.
     """
     try:
-        start_time = time.time()
         exchange_pairs = [
             ("upbit", "bybit"),
             ("upbit", "gateio"),
         ]
         batch_size = 10
         seed = get_admin_seed_money()
-        total_tasks = 0
-        for ex1, ex2 in exchange_pairs:
-            tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
-            logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
-            if not tickers:
-                logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
-                continue
-            tasks = []
-            for i in range(0, len(tickers), batch_size):
-                batch = tickers[i:i + batch_size]
-                tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
-            total_tasks += len(tasks)
-            if tasks:
-                logger.info("before group apply_async")
-                group(tasks).apply_async(retry=False, expires=5)
-                logger.info("after group apply_async")
-        logger.info(f"{total_tasks}개 tasks를 broker publish 완료, 소요 시간: {time.time() - start_time:.2f}초")
+
+        async def async_publish():
+            total_tasks = 0
+            loop = asyncio.get_running_loop()
+            
+            for ex1, ex2 in exchange_pairs:
+                tickers = get_common_tickers((exMgr.exchanges[ex1], exMgr.exchanges[ex2]))
+                logger.debug(f"공통 진입가능 티커 ({ex1}, {ex2}): {tickers}")
+                
+                if not tickers:
+                    logger.info(f"공통 진입가능 티커가 없습니다: {ex1}, {ex2}")
+                    continue
+                
+                tasks = []
+                for i in range(0, len(tickers), batch_size):
+                    batch = tickers[i:i + batch_size]
+                    tasks.append(calculate_orderbook_exrate_task.s(batch, seed, ex1, ex2))
+                    
+                total = len(tasks)
+                total_tasks += total
+                if tasks:
+                    # Celery publish를 thread executor에 위임
+                    loop.run_in_executor(None, lambda: group(tasks).apply_async(retry=False, expires=5))
+            logger.info(f"{total_tasks}개 tasks를 publish to celery broker")
+
+        asyncio.run(async_publish())
+        logger.info("스케줄러 작업이 성공적으로 실행되었습니다.")
     except Exception as e:
         logger.error(f"스케줄러 작업 중 오류 발생: {e}")
 

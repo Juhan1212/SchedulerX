@@ -99,22 +99,27 @@ if redis_host is None:
 connected_clients = set()
 
 async def redis_pubsub_listener():
-    redis = aioredis.from_url(f"redis://{redis_host}:6379/1")
-    pubsub = redis.pubsub()
-    await pubsub.subscribe("exchange_rate")
-    
-    async for message in pubsub.listen():
-        if message["type"] == "message":
-            raw_data = message["data"].decode()
-            try:
-                # JSON 역직렬화 시도
-                data = json.loads(raw_data)
-            except Exception:
-                # 역직렬화 실패 시 원본 문자열 그대로 사용
-                data = raw_data
-            # 연결된 모든 클라이언트에게 전송 (항상 문자열로 전송)
-            await broadcast_to_clients(json.dumps(data, ensure_ascii=False))
-
+    while True:
+        try:
+            redis = aioredis.from_url(f"redis://{redis_host}:6379/1")
+            pubsub = redis.pubsub()
+            await pubsub.subscribe("exchange_rate")
+            
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    raw_data = message["data"].decode()
+                    try:
+                        # JSON 역직렬화 시도
+                        data = json.loads(raw_data)
+                    except Exception:
+                        # 역직렬화 실패 시 원본 문자열 그대로 사용
+                        data = raw_data
+                    # 연결된 모든 클라이언트에게 전송 (항상 문자열로 전송)
+                    await broadcast_to_clients(json.dumps(data, ensure_ascii=False))
+        except Exception as e:
+            logger.error(f"Redis pubsub listener error: {e}")
+            await asyncio.sleep(5)
+            
 async def broadcast_to_clients(message: str):
     for ws in connected_clients.copy():
         try:

@@ -121,9 +121,11 @@ async def test_get_position_info(bybit_service):
     # ))
 
     # get_position_info 호출
-    positions = await bybit_service.get_position_info("XRP")
+    positions = await bybit_service.get_position_info("BTC")
+    res = list(filter(lambda x: float(x.get('size', 0)) > 0, positions.get('list', [])))
     
     print(json.dumps(positions, indent=2))
+    print(json.dumps(res, indent=2))
     
     # 결과 검증
     # assert len(positions) > 0
@@ -149,3 +151,26 @@ async def test_get_lot_size(bybit_service):
     
     # 결과 검증
     # assert lot_size == 0.01
+    
+@pytest.mark.asyncio
+async def test_get_available_balance(bybit_service):
+    # Bybit API의 잔액 조회 응답을 모킹합니다.
+    # mock_balance_response = {
+    #     "retCode": 0,
+    #     "result": {
+    #         "availableBalance": 1000.0
+    #     }
+    # }
+    # aiohttp.ClientSession.get = AsyncMock(return_value=MagicMock(
+    #     status=200,
+    #     json=AsyncMock(return_value=mock_balance_response)
+    # ))
+
+    # get_available_balance 호출
+    balance = await bybit_service.get_available_balance()
+    print(balance)
+    # balance = list(filter(lambda x: float(x.get('usdValue', 0)) > 1 , balance))
+    # print(json.dumps(balance, indent=2))
+
+    # 결과 검증
+    # assert balance == 1000.0

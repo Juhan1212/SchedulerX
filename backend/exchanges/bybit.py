@@ -6,6 +6,7 @@ import logging
 import os
 import aiohttp
 from .base import Exchange
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,8 @@ class BybitExchange(Exchange):
                     "side": "Buy",
                     "orderType": "Market",
                     "qty": '0',
-                    "positionIdx": 1
+                    "positionIdx": 1,
+                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"  # 고유 주문 ID
                 }
             # 시장가 매도
             elif side.lower() == "ask":
@@ -230,7 +232,8 @@ class BybitExchange(Exchange):
                     "side": "Sell",
                     "orderType": "Market",
                     "qty": str(seed),
-                    "positionIdx": 2
+                    "positionIdx": 2,
+                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"  # 고유 주문 ID
                 }
             else:
                 raise ValueError("Invalid side: must be 'bid' or 'ask'")
@@ -387,4 +390,51 @@ class BybitExchange(Exchange):
             raise
         except Exception as e:
             logger.error(f"Unexpected error while fetching orders for {ticker}: {e}")
+            raise
+        
+    async def get_available_balance(self) -> float:
+        """
+        Bybit에서 사용 가능한 잔액을 조회합니다.
+
+        Returns:
+            float: 사용 가능한 잔액
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            query_string = "accountType=UNIFIED"
+            url = f"{self.server_url}/v5/account/wallet-balance?{query_string}"
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            headers = {
+                "Accept": "application/json"
+            }
+            # Bybit signature 생성 (key 순서 고정)
+            sign_payload = timestamp + self.api_key + recv_window + query_string
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers["X-BAPI-SIGN"] = signature
+            headers["X-BAPI-API-KEY"] = self.api_key
+            headers["X-BAPI-TIMESTAMP"] = timestamp
+            headers["X-BAPI-RECV-WINDOW"] = recv_window
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+
+                    response = await res.json()
+                    if response.get("retCode") == 0:
+                        return response["result"]["list"][0].get('totalAvailableBalance', 0.0)
+                    raise Exception(f"Bybit API Error: {response.get('retMsg')}")
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching available balance: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching available balance: {e}")
             raise

@@ -199,7 +199,8 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
                     position = list(filter(lambda x: float(x.get('size', 0)) > 0, res.get('list', [])))
                     
                     # 거래소 잔액이 seed보다 작은 경우, 포지션 진입을 건너뜀
-                    if bybit_balance < seed:
+                    # seed는 KRW라서 USDT 가격으로 환산하여 비교
+                    if bybit_balance < round(float(seed) / usdt_price, 2):
                         logger.info(f"거래소 {exchange2}의 잔액이 부족하여 포지션 진입을 건너뜁니다. 주문가능잔액 : {bybit_balance}")
                         message += f"\n거래소 {exchange2}의 잔액이 부족하여 포지션 진입을 건너뜁니다. 주문가능잔액 : {bybit_balance}"
                         continue
@@ -283,6 +284,11 @@ def work_task(data, seed, exchange1, exchange2, retry_count=0):
         else:
             logger.error("최대 재시도 횟수 초과. 작업을 중단합니다.")
             return
+    except Exception as e:
+        logger.error(f"작업 처리 중 알 수 없는 에러가 발생했습니다: {e}", exc_info=True)
+        message += f"\n작업 처리 중 알 수 없는 에러가 발생했습니다"
+        # 일반 에러는 재시도하지 않고 바로 중단
+        return
     finally:
         # 작업 완료 후 Telegram 메시지 전송
         if message:

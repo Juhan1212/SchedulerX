@@ -21,7 +21,7 @@ async def send_telegram(message, message_type='text'):
     if not bot_id or not chat_id:
         raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.")
     
-    result = None   
+    result = ""   
     try:        
         if message_type == 'text':
             result = await bot.send_message(chat_id=chat_id, text=message)

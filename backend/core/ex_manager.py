@@ -1,20 +1,341 @@
 import logging
 import asyncio
+import os
 from backend.exchanges import *
+import psycopg2
+from contextlib import contextmanager
+from backend.exchanges.base import Exchange, ForeignExchange, KoreanExchange
+from backend.utils.safe_numeric import safe_numeric
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 class ExchangeManager:
     def __init__(self):
-        self.exchanges = {}
+        self.exchanges: dict[str, KoreanExchange | ForeignExchange] = {}
 
     def register_exchange(self, name, exchange):
         self.exchanges[name] = exchange
 
-    def get_common_tickers(self):
-        all_tickers = [set(exchange.get_tickers()) for exchange in self.exchanges.values()]
+    async def get_common_tickers(self):
+        all_tickers = [set(await exchange.get_tickers()) for exchange in self.exchanges.values()]
         return set.intersection(*all_tickers)
-    
+
+    @contextmanager
+    def _get_db_cursor(self):
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is not set")
+        
+        # SQLAlchemy URL을 psycopg2 형식으로 변환
+        if database_url.startswith("postgresql://"):
+            conn = psycopg2.connect(database_url)
+        else:
+            raise ValueError("DATABASE_URL must be a PostgreSQL connection string")
+        
+        cursor = conn.cursor()
+        try:
+            yield cursor
+            conn.commit()
+        finally:
+            conn.close()
+
+    async def upsert_tickers(self):
+        """
+        데이터베이스에 티커 정보를 갱신합니다.
+        """
+        async def process_exchange(exchange_name, exchange_obj):
+            with self._get_db_cursor() as cursor:
+                ticker_infos = await exchange_obj.get_full_ticker_info()
+                if not ticker_infos:
+                    logger.warning(f"No ticker info found for {exchange_name}")
+                    return
+
+                cursor.execute("SELECT id FROM exchanges WHERE eng_name = %s", (exchange_name,))
+                exchange_id_row = cursor.fetchone()
+                if not exchange_id_row:
+                    logger.error(f"Exchange id not found for {exchange_name}")
+                    return
+                exchange_id = exchange_id_row[0]
+
+                for info in ticker_infos:
+                    cursor.execute(
+                        """
+                        INSERT INTO coins_exchanges (exchange_id, coin_symbol, display_name, net_type, deposit_yn, withdraw_yn) 
+                        VALUES (%s, %s, %s, %s, %s, %s) 
+                        ON CONFLICT (exchange_id, coin_symbol) DO 
+                        UPDATE SET 
+                        display_name = EXCLUDED.display_name, 
+                        net_type = EXCLUDED.net_type, 
+                        deposit_yn = EXCLUDED.deposit_yn, 
+                        withdraw_yn = EXCLUDED.withdraw_yn
+                        """,
+                        (
+                            exchange_id,
+                            info.get('ticker'),
+                            info.get('display_name'),
+                            info.get('net_type', info.get('chain', None)),
+                            bool(info.get('deposit_yn', 0)),
+                            bool(info.get('withdraw_yn', 0))
+                        )
+                    )
+
+        tasks = [process_exchange(name, obj) for name, obj in self.exchanges.items()]
+        await asyncio.gather(*tasks)
+
+    def get_users_with_both_exchanges_running_autotrading(self, korean_ex, foreign_ex):
+        """
+        두 거래소 모두 연결되어 있고, 활성화된 전략(is_active=true)을 가진 유저와 전략 정보를 반환합니다.
+        반환값: [{user_id, email, strategy_id, strategy_name, ...}]
+        """
+        with self._get_db_cursor() as cursor:
+            query = """
+                SELECT u.id, 
+                    u.active_strategy_id,
+                    u.email, 
+                    u.total_entry_count,
+                    u.total_order_amount,
+                    s.name AS strategy_name, 
+                    s.is_active, 
+                    s.seed_amount,
+                    s.coin_mode, 
+                    s.selected_coins, 
+                    s.entry_rate, 
+                    s.exit_rate, 
+                    s.seed_division,
+                    s.allow_average_down, 
+                    s.allow_average_up, 
+                    s.webhook_enabled, 
+                    s.telegram_enabled, 
+                    s.ai_mode,
+                    s.leverage,
+                    s.entry_count
+                FROM users u
+                JOIN user_exchanges ue1 ON u.id = ue1.user_id
+                JOIN exchanges ex1 ON ue1.exchange_id = ex1.id
+                JOIN user_exchanges ue2 ON u.id = ue2.user_id
+                JOIN exchanges ex2 ON ue2.exchange_id = ex2.id
+                JOIN strategies s ON u.active_strategy_id = s.id
+                WHERE ex1.eng_name = %s 
+                AND ex2.eng_name = %s
+                AND s.is_active = TRUE
+            """
+            cursor.execute(query, (korean_ex, foreign_ex))
+            rows = cursor.fetchall()
+            if cursor.description is not None:
+                colnames = [desc[0] for desc in cursor.description]
+                return [dict(zip(colnames, row)) for row in rows]
+            return []
+        
+    def get_user_positions_for_settlement(self, user_id, coin_symbol):
+        """
+        마지막 OPEN 포지션부터 마지막 포지션까지 모두 조회하여
+        profit, profitRate, 평균진입환율(피라미딩)을 계산합니다.
+        실제 positions 테이블 구조 반영 (size 대신 kr_volume, fr_volume, kr_funds, fr_funds 등 사용)
+        """
+        try:
+            with self._get_db_cursor() as cursor:
+                # 마지막 CLOSED 포지션의 entry_time 찾기
+                cursor.execute(
+                    """
+                    SELECT entry_time 
+                    FROM positions
+                    WHERE user_id = %s 
+                    AND coin_symbol = %s 
+                    AND status = 'CLOSED'
+                    ORDER BY entry_time DESC 
+                    LIMIT 1
+                    """, (user_id, coin_symbol)
+                )
+                closed_row = cursor.fetchone()
+                if closed_row:
+                    closed_entry_time = closed_row[0]
+                    # 해당 entry_time 이후의 OPEN 포지션 조회
+                    cursor.execute(
+                        """
+                        SELECT entry_rate, 
+                            kr_volume, 
+                            kr_funds, 
+                            fr_funds, 
+                            kr_fee, 
+                            fr_fee
+                        FROM positions
+                        WHERE user_id = %s 
+                        AND coin_symbol = %s 
+                        AND entry_time > %s 
+                        AND status = 'OPEN'
+                        ORDER BY entry_time ASC
+                        """, (user_id, coin_symbol, closed_entry_time)
+                    )
+                else:
+                    # CLOSED 포지션이 없으면 모든 OPEN 포지션 조회
+                    cursor.execute(
+                        """
+                        SELECT entry_rate, 
+                            kr_volume, 
+                            kr_funds, 
+                            fr_funds, 
+                            kr_fee, 
+                            fr_fee
+                        FROM positions
+                        WHERE user_id = %s 
+                        AND coin_symbol = %s 
+                        AND status = 'OPEN'
+                        ORDER BY entry_time ASC
+                        """, (user_id, coin_symbol)
+                    )
+                rows = cursor.fetchall()
+                if not rows:
+                    return None
+
+                total_kr_volume = 0
+                weighted_entry_sum = 0
+                total_kr_funds = 0
+                total_fr_funds = 0
+                total_kr_fee = 0 
+                total_fr_fee = 0
+
+                for entry_rate, kr_volume, kr_funds, fr_funds, kr_fee, fr_fee in rows:
+                    weighted_entry_sum += float(entry_rate) * float(kr_volume)
+                    total_kr_volume += float(kr_volume)
+                    total_kr_funds += float(kr_funds)
+                    total_fr_funds += float(fr_funds)
+                    total_kr_fee += float(kr_fee)
+                    total_fr_fee += float(fr_fee)
+
+                avg_entry_rate = weighted_entry_sum / total_kr_volume if total_kr_volume > 0 else 0
+
+                return {
+                    "avg_entry_rate": avg_entry_rate,
+                    "total_kr_volume": total_kr_volume,
+                    "total_kr_funds": total_kr_funds,
+                    "total_fr_funds": total_fr_funds,
+                    "total_kr_fee": total_kr_fee,
+                    "total_fr_fee": total_fr_fee,
+                    "positions_count": len(rows)
+                }
+        except Exception as e:
+            logger.error(f"정산용 포지션 집계 중 에러: {e}")
+            return None
+       
+    def insert_positions(self, user_id: int, **kwargs):
+        """
+        positions 테이블에 새로운 포지션을 삽입합니다.
+        """
+        try:
+            # numeric(18,8) 필드 목록
+            numeric_fields = [
+                'entry_rate', 
+                'exit_rate', 
+                'kr_price', 
+                'kr_volume', 
+                'kr_funds', 
+                'kr_fee',
+                'fr_price', 
+                'fr_volume', 
+                'fr_funds', 
+                'fr_fee', 
+                'profit', 
+                'profit_rate'
+            ]
+            field_scales = {
+                'entry_rate': 2,
+                'exit_rate': 2,
+                'kr_price': 8,
+                'kr_volume': 8,
+                'kr_funds': 8,
+                'kr_fee': 8,
+                'fr_price': 8,
+                'fr_volume': 8,
+                'fr_funds': 8,
+                'fr_fee': 8,
+                'profit': 2,
+                'profit_rate': 2
+            }
+            for key in numeric_fields:
+                if key in kwargs:
+                    kwargs[key] = str(safe_numeric(kwargs[key], scale=field_scales.get(key, 8)))
+
+            with self._get_db_cursor() as cursor:
+                columns = ', '.join(kwargs.keys())
+                placeholders = ', '.join(['%s'] * len(kwargs))
+                values = list(kwargs.values())
+                values.insert(0, user_id)  # user_id를 맨 앞에 추가
+
+                query = f"INSERT INTO positions (user_id, {columns}) VALUES (%s, {placeholders})"
+                cursor.execute(query, values)
+        except Exception as e:
+            logger.error(f"DB에 positions 삽입 중 에러: {e}")
+            print(e)
+            
+    def update_strategies(self, user_id: int, **kwargs):
+        """
+        유저의 strategies의 entry_count 값을 DB에 업데이트합니다.
+        """
+        try:
+            with self._get_db_cursor() as cursor:
+                for key, value in kwargs.items():
+                    cursor.execute(
+                        f"UPDATE strategies SET {key} = %s WHERE id = (SELECT active_strategy_id FROM users WHERE id = %s)",
+                        (value, user_id)
+                    )
+        except Exception as e:
+            logger.error(f"DB에서 strategies.entry_count 업데이트 중 에러: {e}")
+            
+    def update_users(self, user_id: int, **kwargs):
+        """
+        유저의 users 정보를 업데이트합니다.
+        """
+        try:
+            with self._get_db_cursor() as cursor:
+                for key, value in kwargs.items():
+                    cursor.execute(
+                        f"UPDATE users SET {key} = %s WHERE id = %s",
+                        (value, user_id)
+                    )
+        except Exception as e:
+            logger.error(f"DB에서 users 업데이트 중 에러: {e}")
+
+    def get_common_tickers_from_db(self, exchanges: tuple[Exchange, Exchange]) -> list[str]:
+        """
+        db에서 공통 진입가능 티커를 반환합니다.
+        """
+        if len(exchanges) != 2:
+            raise ValueError("공통 진입가능 티커는 2개의 거래소가 필요합니다.")
+        try:
+            with self._get_db_cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, eng_name FROM exchanges WHERE eng_name IN (%s, %s)",
+                    (exchanges[0].name, exchanges[1].name)
+                )
+                rows = cursor.fetchall()
+                ex_id_map = {row[1]: row[0] for row in rows}
+                ex1_id = ex_id_map.get(exchanges[0].name)
+                ex2_id = ex_id_map.get(exchanges[1].name)
+                if not ex1_id or not ex2_id:
+                    logger.error("Exchange id not found for one or both exchanges")
+                    return []
+                query = """
+                    SELECT t1.coin_symbol
+                    FROM coins_exchanges t1
+                    INNER JOIN coins_exchanges t2
+                    ON t1.coin_symbol = t2.coin_symbol
+                    WHERE t1.exchange_id = %s AND t2.exchange_id = %s
+                    AND t1.deposit_yn = TRUE
+                    AND t1.withdraw_yn = TRUE
+                    AND t1.coin_symbol != 'USDT'
+                    AND t2.deposit_yn = TRUE
+                    AND t2.withdraw_yn = TRUE
+                """
+                cursor.execute(query, (ex1_id, ex2_id))
+                intersection_tickers = [row[0] for row in cursor.fetchall()]
+                return intersection_tickers
+        except Exception as e:
+            logger.error(f"DB 에러: {e}")
+            return []
+
     @staticmethod
     async def calc_exrate(ticker: str, seed: float):
         """
@@ -64,9 +385,9 @@ class ExchangeManager:
         }
         
     @staticmethod
-    async def calc_exrate_batch(tickers: list[str], seed: float, exchange1: str, exchange2: str):
+    async def calc_exrate_batch(tickers: list[str], exchange1: str, exchange2: str):
         """
-        여러 티커에 대해 환율을 일괄 계산합니다.
+        여러 티커에 대해 여러 시드금액 기준 환율을 일괄 계산합니다.
         exchange1, exchange2: 거래소 이름(str, 예: 'upbit', 'bybit') 또는 클래스/인스턴스
         """
         def get_exchange_class(name):
@@ -96,35 +417,56 @@ class ExchangeManager:
             *[get_orderbook2(ticker) for ticker in tickers]
         )
         results = []
+        seeds = [i for i in range(100000, 100_000_001, 100000)] # KRW
+
         for ob1, ob2 in zip(exchange1_orderbooks, exchange2_orderbooks):
-            available_size = 0
-            remaining_seed = seed
-            for unit in ob1["orderbook"]:
-                ob_quote_volume = unit["ask_price"] * unit["ask_size"]
-                if remaining_seed >= ob_quote_volume:
-                    available_size += unit["ask_size"]
-                    remaining_seed -= ob_quote_volume
+            ex_rates = []
+            for seed in seeds:
+                available_size = 0
+                remaining_seed = seed
+                for unit in ob1["orderbook"]:
+                    ob_quote_volume = unit["ask_price"] * unit["ask_size"]
+                    if remaining_seed >= ob_quote_volume:
+                        available_size += unit["ask_size"]
+                        remaining_seed -= ob_quote_volume
+                    else:
+                        available_size += remaining_seed / unit["ask_price"]
+                        break
+                
+                remaining_size = available_size
+                quote_volume = 0
+                for unit in ob2["orderbook"]:
+                    if remaining_size >= unit["bid_size"]:
+                        quote_volume += unit["bid_price"] * unit["bid_size"]
+                        remaining_size -= unit["bid_size"]
+                    else:
+                        quote_volume += unit["bid_price"] * remaining_size
+                        break
+                
+                if available_size == 0 or quote_volume == 0:
+                    exchange_rate = None
                 else:
-                    available_size += remaining_seed / unit["ask_price"]
-                    break
-            remaining_size = available_size
-            quote_volume = 0
-            for unit in ob2["orderbook"]:
-                if remaining_size >= unit["bid_size"]:
-                    quote_volume += unit["bid_price"] * unit["bid_size"]
-                    remaining_size -= unit["bid_size"]
-                else:
-                    quote_volume += unit["bid_price"] * remaining_size
-                    break
-            if available_size == 0 or quote_volume == 0:
-                continue
-            exchange_rate = seed / quote_volume
+                    exchange_rate = seed / quote_volume
+
+                ex_rates.append({
+                    'seed': seed,
+                    'ex_rate': exchange_rate
+                })
                 
             results.append({
                 "name": ob1["ticker"],
-                "ex_rate": exchange_rate
+                "ex_rates": ex_rates
             })
         return results
 
-
+    @staticmethod
+    async def exit_position(korean_ex: KoreanExchange, foreign_ex: ForeignExchange, ticker: str, size: float):
+        '''
+        한국거래소에서는 매수, 외국거래소에서는 매도 주문을 동시에 실행합니다.
+        '''
+        return await asyncio.gather(
+            korean_ex.order(ticker, 'ask', size),
+            foreign_ex.close_position(ticker)
+        )
+        
 exMgr = ExchangeManager()

@@ -4,13 +4,17 @@ import hashlib
 import json as pyjson
 import logging
 import os
+from urllib.parse import urlencode
 import aiohttp
-from .base import Exchange
+from .base import ForeignExchange
 import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-class BybitExchange(Exchange):
+class BybitExchange(ForeignExchange):
     """
     Bybit 거래소 API와 상호작용하기 위한 클래스.
 
@@ -34,14 +38,14 @@ class BybitExchange(Exchange):
         Returns:
             BybitExchange: BybitExchange 인스턴스
         """
-        api_key = os.getenv("BYBIT_API_KEY")
+        api_key = os.getenv("BYBIT_ACCESS_KEY")
         secret_key = os.getenv("BYBIT_SECRET_KEY")
         if not api_key or not secret_key:
-            raise ValueError("BYBIT_API_KEY and BYBIT_SECRET_KEY must be set in environment variables.")
+            raise ValueError("BYBIT_ACCESS_KEY and BYBIT_SECRET_KEY must be set in environment variables.")
         return cls(api_key, secret_key)
 
     @classmethod
-    async def get_tickers(cls) -> list[str]:
+    async def get_tickers(cls):
         """
         Bybit에서 USDT 티커 목록을 가져옵니다.
 
@@ -61,15 +65,11 @@ class BybitExchange(Exchange):
 
                     response = await res.json()
                     if response.get("retCode") == 0:  # 성공 코드 확인
-                        usdt_tickers = filter(
-                            lambda x: x['symbol'].endswith('USDT'),
-                            response.get("result", {}).get("list", [])
-                        )
-                        processed_tickers = map(
-                            lambda x: x['symbol'].replace('USDT', ''),
-                            usdt_tickers
-                        )
-                        return list(processed_tickers)
+                        return [
+                            (x['symbol'].replace('USDT', ''), x['symbol'].replace('USDT', ''))
+                            for x in response.get("result", {}).get("list", [])
+                            if x['symbol'].endswith('USDT')
+                        ]
                     raise Exception(f"Bybit API Error: {response.get('retMsg')}")
         except aiohttp.ClientError as e:
             logger.error(f"Network error while fetching tickers: {e}")
@@ -213,6 +213,12 @@ class BybitExchange(Exchange):
                 "Accept": "application/json"
             }
 
+            # tradeMode 확인
+            position_info = await self.get_position_info(ticker)
+            trade_mode = None
+            if position_info and 'list' in position_info and len(position_info['list']) > 0:
+                trade_mode = position_info['list'][0].get('tradeMode')
+
             # 시장가 매수
             if side.lower() == "bid":
                 body = {
@@ -221,9 +227,10 @@ class BybitExchange(Exchange):
                     "side": "Buy",
                     "orderType": "Market",
                     "qty": '0',
-                    "positionIdx": 1,
-                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"  # 고유 주문 ID
+                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"
                 }
+                if trade_mode == 1:
+                    body["positionIdx"] = '1'
             # 시장가 매도
             elif side.lower() == "ask":
                 body = {
@@ -232,9 +239,10 @@ class BybitExchange(Exchange):
                     "side": "Sell",
                     "orderType": "Market",
                     "qty": str(seed),
-                    "positionIdx": 2,
-                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"  # 고유 주문 ID
+                    "orderLinkId": f"{ticker}_{datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')}"
                 }
+                if trade_mode == 1:
+                    body["positionIdx"] = '2'
             else:
                 raise ValueError("Invalid side: must be 'bid' or 'ask'")
 
@@ -264,6 +272,64 @@ class BybitExchange(Exchange):
             logger.error(f"Unexpected error while placing order for {ticker}: {e}")
             raise
     
+    async def close_position(self, ticker: str):
+        """
+        Bybit에서 특정 티커의 포지션을 청산합니다.
+
+        Args:
+            ticker (str): 티커 이름 (예: "BTC")
+
+        Returns:
+            dict: 청산 결과
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            url = f"{self.server_url}/v5/order/create"
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+
+            body = {
+                "category": "linear",
+                "symbol": f"{ticker}USDT",
+                "side": "Buy",
+                "orderType": "Market",
+                "qty": '0',
+                "reduceOnly": True,
+                "closeOnTrigger": True
+            }
+
+            # Bybit signature 생성 (key 순서 고정)
+            body_str = pyjson.dumps(body)
+            sign_payload = timestamp + self.api_key + recv_window + body_str
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers["X-BAPI-SIGN"] = signature
+            headers["X-BAPI-API-KEY"] = self.api_key
+            headers["X-BAPI-TIMESTAMP"] = timestamp
+            headers["X-BAPI-RECV-WINDOW"] = recv_window
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=body, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+                    return await res.json()
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while closing position for {ticker}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while closing position for {ticker}: {e}")
+            raise
+
     async def get_position_info(self, ticker: str):
         """
         Bybit에서 특정 티커의 포지션 정보를 가져옵니다.
@@ -392,6 +458,57 @@ class BybitExchange(Exchange):
             logger.error(f"Unexpected error while fetching orders for {ticker}: {e}")
             raise
         
+    async def get_order(self, order_id: str):
+        """
+        Bybit에서 특정 티커의 주문 내역을 조회합니다.
+
+        Args:
+            ticker (str): 티커 이름 (예: "BTC")
+            order_id (str): 주문 ID
+
+        Returns:
+            dict: 주문 내역
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            query_string = f"category=linear&&orderId={order_id}"
+            url = f"{self.server_url}/v5/order/realtime?{query_string}"
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            headers = {
+                "Accept": "application/json"
+            }
+            # Bybit signature 생성 (key 순서 고정, GET은 쿼리스트링 포함)
+            sign_payload = timestamp + self.api_key + recv_window + query_string
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers["X-BAPI-SIGN"] = signature
+            headers["X-BAPI-API-KEY"] = self.api_key
+            headers["X-BAPI-TIMESTAMP"] = timestamp
+            headers["X-BAPI-RECV-WINDOW"] = recv_window
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+
+                    response = await res.json()
+                    if response.get("retCode") == 0:
+                        return response.get("result", {}).get("list", [])[0]
+                    raise Exception(f"Bybit API Error: {response.get('retMsg')}")
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching orders for {order_id}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching orders for {order_id}: {e}")
+            raise
+        
     async def get_available_balance(self) -> float:
         """
         Bybit에서 사용 가능한 잔액을 조회합니다.
@@ -430,11 +547,141 @@ class BybitExchange(Exchange):
 
                     response = await res.json()
                     if response.get("retCode") == 0:
-                        return response["result"]["list"][0].get('totalAvailableBalance', 0.0)
+                        return float(response["result"]["list"][0].get('totalAvailableBalance', 0.0))
                     raise Exception(f"Bybit API Error: {response.get('retMsg')}")
         except aiohttp.ClientError as e:
             logger.error(f"Network error while fetching available balance: {e}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error while fetching available balance: {e}")
+            raise
+        
+    async def get_depo_with_pos_tickers(self, coin: str = "") -> list[dict]:
+        """
+        Bybit에서 각 코인별 입금/출금 가능 여부, 수수료, 최소 금액, 확인 횟수 등 정보를 반환합니다.
+
+        Args:
+            coin (str, optional): 특정 코인 심볼. 빈 문자열이면 전체 반환.
+
+        Returns:
+            list[dict]: 각 코인별 입출금 정보 리스트
+        """
+        try:
+            url = f"{self.server_url}/v5/asset/coin/query-info"
+            params = {}
+            if coin:
+                params["coin"] = coin
+            # 쿼리스트링 생성
+            query_string = urlencode(params)
+            
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            # Bybit signature 생성 (key 순서 고정, GET은 쿼리스트링 포함)
+            sign_payload = timestamp + self.api_key + recv_window + query_string
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers = {
+                "Accept": "application/json",
+                "X-BAPI-SIGN": signature,
+                "X-BAPI-API-KEY": self.api_key,
+                "X-BAPI-TIMESTAMP": timestamp,
+                "X-BAPI-RECV-WINDOW": recv_window
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+                    data = await res.json()
+                    if data.get("retCode") != 0:
+                        raise Exception(f"Bybit API Error: {data.get('retMsg')}")
+                    result = []
+                    for coin_info in data.get("result", {}).get("rows", []):
+                        for chain in coin_info.get('chains', []):
+                            result.append({
+                                "coin": coin_info.get("name"),
+                                "chain": chain.get("chainType"),
+                                "deposit_yn": chain.get("chainDeposit"),
+                                "withdraw_yn": chain.get("chainWithdraw"),
+                            })
+                    return result
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while fetching coin deposit/withdraw info: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching coin deposit/withdraw info: {e}")
+            raise
+        
+    async def get_full_ticker_info(self):
+        """
+        USDT 티커 목록, 네트워크, 입출금 가능여부를 모두 합성하여 반환
+        Returns:
+            list[dict]: [{ticker, display_name, chain, deposit_enabled, withdraw_enabled, deposit_min, withdraw_min, withdraw_fee, confirm_count}, ...]
+        """
+        tickers = await self.get_tickers()  # [('BTC', 'BTC'), ...]
+        # Bybit은 네트워크 정보가 chain으로 제공됨
+        coin_list = [ticker for ticker, _ in tickers]
+        # 입출금 정보 전체 조회
+        coin_infos = await self.get_depo_with_pos_tickers()
+        result = []
+        for ticker, display_name in tickers:
+            # 여러 체인 중 대표 체인(chainType==ticker) 우선
+            chains = [info for info in coin_infos if info['coin'] == ticker]
+            for chain in chains:
+                result.append({
+                    'ticker': ticker,
+                    'display_name': display_name,
+                    'net_type': chain.get('chain'),
+                    'deposit_yn': chain.get('deposit_yn'),
+                    'withdraw_yn': chain.get('withdraw_yn'),
+                })
+        return result
+    
+    async def set_leverage(self, ticker: str, leverage: str) -> dict:
+        """
+        레버리지를 설정합니다.
+        """
+        try:
+            url = f"{self.server_url}/v5/position/set-leverage"
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+
+            body = {
+                "category" : "linear",
+                "symbol": f"{ticker}USDT",
+                "buyLeverage": leverage,
+                "sellLeverage": leverage
+            }
+
+            # Bybit signature 생성 (key 순서 고정)
+            body_str = pyjson.dumps(body)
+            sign_payload = timestamp + self.api_key + recv_window + body_str
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers["X-BAPI-SIGN"] = signature
+            headers["X-BAPI-API-KEY"] = self.api_key
+            headers["X-BAPI-TIMESTAMP"] = timestamp
+            headers["X-BAPI-RECV-WINDOW"] = recv_window
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=body, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+                    return await res.json()
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error while placing order for {ticker}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while placing order for {ticker}: {e}")
             raise

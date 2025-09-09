@@ -1,5 +1,3 @@
-import { FuturesCandlestick } from "gate-api";
-
 export interface CandleData {
   candleData: {
     time: number;
@@ -37,26 +35,3 @@ export interface CandlestickParams {
   to?: number;
   limit?: number;
 }
-
-export const transformDataIntoCandleData = (
-  data: FuturesCandlestick[]
-): CandleData => {
-  const candleData = data.map((item: FuturesCandlestick) => {
-    return {
-      time: item.t !== undefined ? parseInt(item.t.toString()) : 0,
-      open: parseFloat(item.o ?? "0"),
-      high: parseFloat(item.h ?? "0"),
-      low: parseFloat(item.l ?? "0"),
-      close: parseFloat(item.c ?? "0"),
-    };
-  });
-
-  const volumeData = data.map((item: FuturesCandlestick) => {
-    return {
-      time: item.t !== undefined ? parseInt(item.t.toString()) : 0,
-      value: parseFloat(item.v?.toString() ?? "0"),
-    };
-  });
-
-  return { candleData, volumeData };
-};

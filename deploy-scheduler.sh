@@ -27,6 +27,8 @@ sudo yum update -y
 #     sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
 # fi
 
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Redis 설치 및 설정
 echo "📦 Installing Redis..."
 sudo yum install -y redis
@@ -88,21 +90,12 @@ sudo rabbitmqctl set_permissions -p / celery ".*" ".*" ".*"
 
 echo "✅ RabbitMQ installed and configured"
 
-# 프로젝트 클론
-cd /home/ec2-user
-sudo -u ec2-user git clone https://github.com/JuhanKimSeoul/kimchi_premium_strategy_implementation.git
-cd kimchi_premium_strategy_implementation
-sudo chown -R ec2-user:ec2-user .
-
 # Python 가상환경 생성 및 활성화
-sudo -u ec2-user python3.11 -m venv venv
-sudo -u ec2-user bash -c "source venv/bin/activate && pip install --upgrade pip"
-
-# uv 설치 (ec2-user로)
-sudo -u ec2-user bash -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
+sudo -u ec2-user python3.11 -m venv .venv
+sudo -u ec2-user bash -c "source .venv/bin/activate && pip install --upgrade pip"
 
 # uv로 패키지 동기화
-sudo -u ec2-user bash -c "source ~/.cargo/env && source venv/bin/activate && uv sync"
+uv sync
 
 # PostgreSQL 클라이언트 라이브러리 설치 (psycopg2 빌드를 위해)
 sudo yum install -y postgresql-devel

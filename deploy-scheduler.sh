@@ -31,50 +31,91 @@ sudo yum update -y
 
 # Redis 설치 및 설정
 echo "📦 Installing Redis..."
-sudo yum install -y redis
 
-# Redis 설정 파일 백업 및 수정
-sudo cp /etc/redis/redis.conf /etc/redis/redis.conf.bak
+# Redis 소스 컴파일 설치
+cd /tmp
+wget http://download.redis.io/redis-stable.tar.gz
+tar xvzf redis-stable.tar.gz
+cd redis-stable
+make
+sudo make install
 
-# Redis를 외부 접속 가능하도록 설정
-sudo sed -i 's/bind 127.0.0.1 -::1/bind 0.0.0.0/' /etc/redis/redis.conf
-sudo sed -i 's/# requireauth foobared/requireauth redis123/' /etc/redis/redis.conf
-sudo sed -i 's/protected-mode yes/protected-mode no/' /etc/redis/redis.conf
+# Redis CLI 심볼릭 링크 생성 (PATH에서 접근 가능하도록)
+sudo ln -sf /usr/local/bin/redis-cli /usr/bin/redis-cli || true
+
+# Redis 설정 디렉토리 생성
+sudo mkdir -p /etc/redis
+sudo mkdir -p /var/lib/redis
+sudo mkdir -p /var/log/redis
+
+# Redis 사용자 생성
+sudo useradd --system --home /var/lib/redis --shell /bin/false redis || true
+sudo chown redis:redis /var/lib/redis
+sudo chown redis:redis /var/log/redis
+
+# Redis 설정 파일 생성
+sudo tee /etc/redis/redis.conf > /dev/null <<EOF
+bind 0.0.0.0
+port 6379
+timeout 0
+tcp-keepalive 300
+daemonize yes
+pidfile /var/run/redis.pid
+loglevel notice
+logfile /var/log/redis/redis-server.log
+databases 16
+dir /var/lib/redis
+requireauth redis123
+EOF
+
+# Redis systemd 서비스 파일 생성
+sudo tee /etc/systemd/system/redis.service > /dev/null <<EOF
+[Unit]
+Description=Advanced key-value store
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/redis-server /etc/redis/redis.conf
+ExecStop=/usr/local/bin/redis-cli shutdown
+TimeoutStopSec=0
+Restart=always
+User=redis
+Group=redis
+RuntimeDirectory=redis
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
 # Redis 서비스 시작 및 활성화
+sudo systemctl daemon-reload
 sudo systemctl enable redis
 sudo systemctl start redis
 
 echo "✅ Redis installed and configured"
 
-# EPEL 저장소 활성화 (RabbitMQ를 위해 필요)
-sudo yum install -y epel-release
-
-# RabbitMQ 설치 및 설정
+# RabbitMQ 설치 및 설정 (직접 설치)
 echo "📦 Installing RabbitMQ..."
 
 # Erlang 설치 (RabbitMQ 의존성)
-sudo yum install -y erlang
+sudo dnf install -y epel-release
+sudo dnf install -y erlang
 
-# RabbitMQ 공식 저장소 추가
-sudo rpm --import https://github.com/rabbitmq/signing-keys/releases/download/2.0/rabbitmq-release-signing-key.asc
+# RabbitMQ 공식 RPM 저장소 추가
+curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash
 
-# RabbitMQ 저장소 파일 생성
-sudo tee /etc/yum.repos.d/rabbitmq.repo > /dev/null <<EOF
-[rabbitmq]
-name=rabbitmq
-baseurl=https://packagecloud.io/rabbitmq/rabbitmq-server/el/7/\$basearch
-repo_gpgcheck=1
-gpgcheck=1
-enabled=1
-gpgkey=https://github.com/rabbitmq/signing-keys/releases/download/2.0/rabbitmq-release-signing-key.asc
-sslverify=1
-sslcacert=/etc/pki/tls/certs/ca-bundle.crt
-metadata_expire=300
+# RabbitMQ 서버 설치
+sudo dnf install -y rabbitmq-server
+
+# RabbitMQ 설정 파일 생성
+sudo tee /etc/rabbitmq/rabbitmq.conf > /dev/null <<EOF
+listeners.tcp.default = 5672
+management.tcp.port = 15672
+default_user = celery
+default_pass = 123
 EOF
-
-# RabbitMQ 설치
-sudo yum install -y rabbitmq-server
 
 # RabbitMQ 서비스 시작 및 활성화
 sudo systemctl enable rabbitmq-server
@@ -83,8 +124,9 @@ sudo systemctl start rabbitmq-server
 # RabbitMQ 관리 플러그인 활성화
 sudo rabbitmq-plugins enable rabbitmq_management
 
-# RabbitMQ 사용자 추가 및 권한 설정
-sudo rabbitmqctl add_user celery 123
+# 사용자 생성 및 권한 설정 (설정 파일의 기본 사용자 외에)
+sleep 5
+sudo rabbitmqctl add_user celery 123 || true
 sudo rabbitmqctl set_user_tags celery administrator
 sudo rabbitmqctl set_permissions -p / celery ".*" ".*" ".*"
 
@@ -98,7 +140,7 @@ sudo -u ec2-user bash -c "source .venv/bin/activate && pip install --upgrade pip
 uv sync
 
 # PostgreSQL 클라이언트 라이브러리 설치 (psycopg2 빌드를 위해)
-sudo yum install -y postgresql-devel
+sudo dnf install -y libpq-devel
 
 # 환경변수 파일 생성 (스케줄러용)
 sudo -u ec2-user tee .env > /dev/null <<EOF
@@ -153,7 +195,7 @@ echo "✅ Scheduler service created. Start with: sudo systemctl start kimchi-sch
 sudo -u ec2-user mkdir -p logs
 sudo chmod 755 logs
 
-# Redis 및 RabbitMQ 상태 확인
+# 서비스 상태 확인
 echo "🔍 Checking services status..."
 sudo systemctl status redis --no-pager
 sudo systemctl status rabbitmq-server --no-pager
@@ -163,7 +205,7 @@ echo "🧪 Testing connections..."
 
 # Redis 연결 테스트
 echo "Testing Redis connection..."
-redis-cli ping
+redis-cli -a redis123 ping
 
 # RabbitMQ 연결 테스트
 echo "Testing RabbitMQ connection..."
@@ -173,7 +215,7 @@ echo "🎉 Scheduler deployment completed!"
 echo ""
 echo "📝 Next steps:"
 echo "1. Edit .env file with your RDS endpoint information"
-echo "2. Test Redis connection: redis-cli ping"
+echo "2. Test Redis connection: redis-cli -a redis123 ping"
 echo "3. Test RabbitMQ: sudo rabbitmqctl status"
 echo "4. Start scheduler: sudo systemctl start kimchi-scheduler"
 echo "5. Monitor scheduler logs: sudo journalctl -u kimchi-scheduler -f"
@@ -187,3 +229,9 @@ echo "🔒 Security note:"
 echo "- Redis password: redis123"
 echo "- RabbitMQ user: celery/123"
 echo "- Make sure to update security groups to allow worker instances to connect"
+echo "- Allow ports 6379 (Redis), 5672 (RabbitMQ), and 15672 (RabbitMQ Management) in security groups"
+echo ""
+echo "📊 Service management:"
+echo "- Redis: sudo systemctl start/stop/restart redis"
+echo "- RabbitMQ: sudo systemctl start/stop/restart rabbitmq-server"
+echo "- Scheduler: sudo systemctl start/stop/restart kimchi-scheduler"

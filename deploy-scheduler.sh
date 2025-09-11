@@ -177,8 +177,8 @@ Requires=redis6.service rabbitmq-server.service
 Type=exec
 User=ec2-user
 Group=ec2-user
-WorkingDirectory=/home/ec2-user/kimchi_premium_strategy_implementation
-Environment=PATH=/home/ec2-user/kimchi_premium_strategy_implementation/.venv/bin
+WorkingDirectory=/home/ec2-user/SchedulerX
+Environment=PATH=/home/ec2-user/SchedulerX/.venv/bin
 ExecStart=/home/ec2-user/.local/bin/uv run scheduler.py
 Restart=always
 RestartSec=10

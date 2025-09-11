@@ -4,131 +4,131 @@
 
 echo "🚀 Starting scheduler deployment on Amazon Linux EC2..."
 
-# 시스템 업데이트
-sudo yum update -y
-
-# # 개발 도구 및 필수 패키지 설치
-# sudo yum groupinstall -y "Development Tools"
-# sudo yum install -y git wget curl openssl-devel bzip2-devel libffi-devel zlib-devel
-
-# # Python 3.11 설치 (Amazon Linux 2023의 경우)
-# sudo yum install -y python3.11 python3.11-pip python3.11-devel
-
-# # Python 3.11이 없는 경우 소스에서 컴파일 설치
-# if ! command -v python3.11 &> /dev/null; then
-#     echo "📦 Installing Python 3.11 from source..."
-#     cd /tmp
-#     wget https://www.python.org/ftp/python/3.11.7/Python-3.11.7.tgz
-#     tar xzf Python-3.11.7.tgz
-#     cd Python-3.11.7
-#     ./configure --enable-optimizations
-#     make altinstall
-#     sudo ln -sf /usr/local/bin/python3.11 /usr/bin/python3.11
-#     sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
-# fi
-
-# curl -LsSf https://astral.sh/uv/install.sh | sh
-
 # Redis 설치 및 설정
 echo "📦 Installing Redis..."
 
-# Redis 소스 컴파일 설치
-cd /tmp
-wget http://download.redis.io/redis-stable.tar.gz
-tar xvzf redis-stable.tar.gz
-cd redis-stable
-make
-sudo make install
+sudo dnf install redis6
+sudo sed -i 's/bind 127.0.0.1 -::1/bind 0.0.0.0/g' /etc/redis/redis.conf
+sudo sed -i 's/daemonize no/daemonize yes/g' /etc/redis/redis.conf
+sudo systemctl restart redis6
+sudo systemctl enable redis6
 
-# Redis CLI 심볼릭 링크 생성 (PATH에서 접근 가능하도록)
-sudo ln -sf /usr/local/bin/redis-cli /usr/bin/redis-cli || true
+# Redis 설정 변경
+sudo sed -i 's/bind 127.0.0.1 -::1/bind 0.0.0.0/g' /etc/redis6/redis6.conf
+sudo sed -i 's/daemonize no/daemonize yes/g' /etc/redis6/redis6.conf
+sudo sed -i 's/protected-mode yes/protected-mode no/g' /etc/redis6/redis6.conf
 
-# Redis 설정 디렉토리 생성
-sudo mkdir -p /etc/redis
-sudo mkdir -p /var/lib/redis
-sudo mkdir -p /var/log/redis
-
-# Redis 사용자 생성
-sudo useradd --system --home /var/lib/redis --shell /bin/false redis || true
-sudo chown redis:redis /var/lib/redis
-sudo chown redis:redis /var/log/redis
-
-# Redis 설정 파일 생성
-sudo tee /etc/redis/redis.conf > /dev/null <<EOF
-bind 0.0.0.0
-port 6379
-timeout 0
-tcp-keepalive 300
-daemonize yes
-pidfile /var/run/redis.pid
-loglevel notice
-logfile /var/log/redis/redis-server.log
-databases 16
-dir /var/lib/redis
-requireauth redis123
-EOF
-
-# Redis systemd 서비스 파일 생성
-sudo tee /etc/systemd/system/redis.service > /dev/null <<EOF
-[Unit]
-Description=Advanced key-value store
-After=network.target
-
-[Service]
-Type=notify
-ExecStart=/usr/local/bin/redis-server /etc/redis/redis.conf
-ExecStop=/usr/local/bin/redis-cli shutdown
-TimeoutStopSec=0
-Restart=always
-User=redis
-Group=redis
-RuntimeDirectory=redis
-RuntimeDirectoryMode=0755
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Redis 서비스 시작 및 활성화
-sudo systemctl daemon-reload
-sudo systemctl enable redis
-sudo systemctl start redis
+# Redis 연결 테스트
+echo "Testing Redis connection..."
+redis-cli ping
 
 echo "✅ Redis installed and configured"
 
 # RabbitMQ 설치 및 설정 (직접 설치)
 echo "📦 Installing RabbitMQ..."
 
-# Erlang 설치 (RabbitMQ 의존성)
-sudo dnf install -y epel-release
-sudo dnf install -y erlang
+## primary RabbitMQ signing key
+sudo rpm --import 'https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc'
+## modern Erlang repository
+sudo rpm --import 'https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key'
+## RabbitMQ server repository
+sudo rpm --import 'https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key'
 
-# RabbitMQ 공식 RPM 저장소 추가
-curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | sudo bash
+sudo tee /etc/yum.repos.d/rabbitmq.repo > /dev/null <<EOF
+# In /etc/yum.repos.d/rabbitmq.repo
 
-# RabbitMQ 서버 설치
-sudo dnf install -y rabbitmq-server
+##
+## Zero dependency Erlang RPM
+##
 
-# RabbitMQ 설정 파일 생성
-sudo tee /etc/rabbitmq/rabbitmq.conf > /dev/null <<EOF
-listeners.tcp.default = 5672
-management.tcp.port = 15672
-default_user = celery
-default_pass = 123
+[modern-erlang]
+name=modern-erlang-el9
+# Use a set of mirrors maintained by the RabbitMQ core team.
+# The mirrors have significantly higher bandwidth quotas.
+baseurl=https://yum1.rabbitmq.com/erlang/el/9/$basearch https://yum2.rabbitmq.com/erlang/el/9/$basearch
+repo_gpgcheck=1
+enabled=1
+gpgkey=https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key
+gpgcheck=1
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
+pkg_gpgcheck=1
+autorefresh=1
+type=rpm-md
+
+[modern-erlang-noarch]
+name=modern-erlang-el9-noarch
+# Use a set of mirrors maintained by the RabbitMQ core team.
+# The mirrors have significantly higher bandwidth quotas.
+baseurl=https://yum1.rabbitmq.com/erlang/el/9/noarch https://yum2.rabbitmq.com/erlang/el/9/noarch
+repo_gpgcheck=1
+enabled=1
+gpgkey=https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc
+gpgcheck=1
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
+pkg_gpgcheck=1
+autorefresh=1
+type=rpm-md
+
+
+##
+## RabbitMQ Server
+##
+
+[rabbitmq-el9]
+name=rabbitmq-el9
+baseurl=https://yum2.rabbitmq.com/rabbitmq/el/9/$basearch https://yum1.rabbitmq.com/rabbitmq/el/9/$basearch
+repo_gpgcheck=1
+enabled=1
+# Cloudsmith's repository key and RabbitMQ package signing key
+gpgkey=https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc
+gpgcheck=1
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
+pkg_gpgcheck=1
+autorefresh=1
+type=rpm-md
+
+[rabbitmq-el9-noarch]
+name=rabbitmq-el9-noarch
+baseurl=https://yum2.rabbitmq.com/rabbitmq/el/9/noarch https://yum1.rabbitmq.com/rabbitmq/el/9/noarch
+repo_gpgcheck=1
+enabled=1
+# Cloudsmith's repository key and RabbitMQ package signing key
+gpgkey=https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc
+gpgcheck=1
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
+pkg_gpgcheck=1
+autorefresh=1
+type=rpm-md
 EOF
 
-# RabbitMQ 서비스 시작 및 활성화
-sudo systemctl enable rabbitmq-server
-sudo systemctl start rabbitmq-server
+## install these dependencies from standard OS repositories
+dnf install -y logrotate
 
-# RabbitMQ 관리 플러그인 활성화
-sudo rabbitmq-plugins enable rabbitmq_management
+## install RabbitMQ and zero dependency Erlang
+dnf install -y erlang rabbitmq-server
 
-# 사용자 생성 및 권한 설정 (설정 파일의 기본 사용자 외에)
-sleep 5
-sudo rabbitmqctl add_user celery 123 || true
+systemctl start rabbitmq-server
+systemctl enable rabbitmq-server
+
+# RabbitMQ 연결 테스트
+echo "Testing RabbitMQ connection..."
+sudo rabbitmqctl status
+
+# RabbitMQ 사용자 및 권한 설정 (외부 접속을 허용하려면 새 계정을 만들고 권한을 부여해야 함)
+sudo rabbitmqctl add_user celery 123
 sudo rabbitmqctl set_user_tags celery administrator
 sudo rabbitmqctl set_permissions -p / celery ".*" ".*" ".*"
+
+# RabbitMQ 관리 콘솔 사용 시 계정 필요 → 관리 플러그인 활성화 필요
+sudo rabbitmq-plugins enable rabbitmq_management
 
 echo "✅ RabbitMQ installed and configured"
 
@@ -145,8 +145,10 @@ sudo dnf install -y libpq-devel
 # 환경변수 파일 생성 (스케줄러용)
 sudo -u ec2-user tee .env > /dev/null <<EOF
 # Environment variables for Scheduler
-REDIS_HOST=localhost
-RABBITMQ_HOST=localhost
+REDIS_HOST=3.39.252.79
+RABBITMQ_HOST=3.39.252.79
+RABBITMQ_USER=celery
+RABBITMQ_PASSWORD=123
 UPBIT_ACCESS_KEY=GPni76hBOOmIiFwAyEIQlUibHiX4JuWawK4RkeDR
 UPBIT_SECRET_KEY=iQjPyvSrfzoigQKp5YBAskt8FRFLln2KyIlpcOFv
 BYBIT_ACCESS_KEY=UwOQ7JsyFFpxqiQpG5
@@ -177,7 +179,7 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/kimchi_premium_strategy_implementation
 Environment=PATH=/home/ec2-user/kimchi_premium_strategy_implementation/venv/bin
-ExecStart=/home/ec2-user/kimchi_premium_strategy_implementation/venv/bin/python scheduler.py
+ExecStart=uv run scheduler.py
 Restart=always
 RestartSec=10
 
@@ -188,38 +190,11 @@ EOF
 # 서비스 활성화
 sudo systemctl daemon-reload
 sudo systemctl enable kimchi-scheduler
+sudo systemctl start kimchi-scheduler
 
 echo "✅ Scheduler service created. Start with: sudo systemctl start kimchi-scheduler"
 
-# 로그 디렉토리 권한 설정
-sudo -u ec2-user mkdir -p logs
-sudo chmod 755 logs
-
-# 서비스 상태 확인
-echo "🔍 Checking services status..."
-sudo systemctl status redis --no-pager
-sudo systemctl status rabbitmq-server --no-pager
-
-# 연결 테스트
-echo "🧪 Testing connections..."
-
-# Redis 연결 테스트
-echo "Testing Redis connection..."
-redis-cli -a redis123 ping
-
-# RabbitMQ 연결 테스트
-echo "Testing RabbitMQ connection..."
-sudo rabbitmqctl status
-
 echo "🎉 Scheduler deployment completed!"
-echo ""
-echo "📝 Next steps:"
-echo "1. Edit .env file with your RDS endpoint information"
-echo "2. Test Redis connection: redis-cli -a redis123 ping"
-echo "3. Test RabbitMQ: sudo rabbitmqctl status"
-echo "4. Start scheduler: sudo systemctl start kimchi-scheduler"
-echo "5. Monitor scheduler logs: sudo journalctl -u kimchi-scheduler -f"
-echo ""
 echo "🌐 Access points:"
 echo "- Redis: localhost:6379 (password: redis123)"
 echo "- RabbitMQ: localhost:5672 (user: celery, password: 123)"

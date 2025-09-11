@@ -4,33 +4,6 @@
 
 echo "🚀 Starting deployment on Amazon Linux EC2..."
 
-# 시스템 업데이트
-sudo yum update -y
-
-# # 개발 도구 및 필수 패키지 설치
-# sudo yum groupinstall -y "Development Tools"
-# sudo yum install -y git wget curl openssl-devel bzip2-devel libffi-devel zlib-devel
-
-# # Python 3.11 설치 시도 (Amazon Linux 2023의 경우)
-# if ! command -v python3.11 &> /dev/null; then
-#     echo "📦 Installing Python 3.11 from source..."
-#     cd /tmp
-#     wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
-#     tar xzf Python-3.11.9.tgz
-#     cd Python-3.11.9
-#     ./configure --enable-optimizations --with-ensurepip=install
-#     make altinstall
-#     sudo ln -sf /usr/local/bin/python3.11 /usr/bin/python3.11
-#     sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
-# else
-#     echo "✅ Python 3.11 already installed"
-# fi
-
-# curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# PostgreSQL 클라이언트 라이브러리 설치 (psycopg2 빌드를 위해)
-# sudo yum install -y postgresql-devel
-
 # Python 가상환경 생성 및 활성화 (Python 3.11 사용)
 sudo -u ec2-user python3.11 -m venv venv
 sudo -u ec2-user bash -c "source venv/bin/activate && pip install --upgrade pip"
@@ -41,8 +14,10 @@ uv sync
 # 환경변수 파일 생성 (Worker용 - 스케줄러 인스턴스 정보 입력 필요)
 sudo -u ec2-user tee .env > /dev/null <<EOF
 # Environment variables for Worker
-REDIS_HOST=SCHEDULER_INSTANCE_PRIVATE_IP
-RABBITMQ_HOST=SCHEDULER_INSTANCE_PRIVATE_IP
+REDIS_HOST=3.39.252.79
+RABBITMQ_HOST=3.39.252.79
+RABBITMQ_USER=celery
+RABBITMQ_PASSWORD=123
 UPBIT_ACCESS_KEY=GPni76hBOOmIiFwAyEIQlUibHiX4JuWawK4RkeDR
 UPBIT_SECRET_KEY=iQjPyvSrfzoigQKp5YBAskt8FRFLln2KyIlpcOFv
 BYBIT_ACCESS_KEY=UwOQ7JsyFFpxqiQpG5
@@ -57,8 +32,6 @@ ENCODING_ALGORITHM=HS256
 TELEGRAM_BOT_TOKEN=7560818075:AAE7Kf8NF8sJYeGgbCv7dD7K3dQ9v4ZICbc
 TELEGRAM_CHAT_ID=2085145028
 EOF
-
-echo "📝 Please edit .env file with scheduler instance IP and RDS endpoint"
 
 # Celery Worker를 위한 systemd 서비스 생성
 sudo tee /etc/systemd/system/kimchi-celery-worker.service > /dev/null <<EOF
@@ -83,6 +56,7 @@ EOF
 # 서비스 활성화 및 시작
 sudo systemctl daemon-reload
 sudo systemctl enable kimchi-celery-worker
+sudo systemctl start kimchi-celery-worker
 echo "✅ Celery worker service created. Start with: sudo systemctl start kimchi-celery-worker"
 
 # 로그 디렉토리 권한 설정

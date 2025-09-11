@@ -1,5 +1,4 @@
 import os
-import json
 import redis
 import pytest
 
@@ -17,17 +16,35 @@ def redis_client():
     yield client
     # 필요시 cleanup: client.flushdb()
 
-def test_redis_mget(redis_client):
-    exchange1 = "upbit"
-    exchange2 = "bybit"
-    
-    # 테스트용 데이터 삽입
-    redis_client.set(f"{exchange1}_{exchange2}_order_test:BTC", json.dumps({'ex_rate': 1400, 'size': 0.1}))
-    redis_client.set(f"{exchange1}_{exchange2}_order_test:ETH", json.dumps({'ex_rate': 1400, 'size': 1}))
-
-    # Redis 키 리스트 생성
-    redis_keys = [f"{exchange1}_{exchange2}_order_test:BTC", f"{exchange1}_{exchange2}_order_test:ETH"]
-    redis_orders = redis_client.mget(redis_keys)
-    print(redis_orders)
-    
-    
+def test_redis_connection(redis_client):
+    """Redis 클라이언트 연결 상태만 확인하는 간단한 테스트"""
+    try:
+        # ping 명령으로 연결 확인
+        response = redis_client.ping()
+        assert response is True, "Redis ping should return True"
+        print("✅ Redis connection successful")
+        
+        # 추가적으로 간단한 set/get 테스트
+        test_key = "connection_test"
+        test_value = "test_value"
+        
+        # 값 설정
+        redis_client.set(test_key, test_value)
+        
+        # 값 조회
+        retrieved_value = redis_client.get(test_key)
+        assert retrieved_value == test_value, f"Expected {test_value}, got {retrieved_value}"
+        
+        # 테스트 키 삭제
+        redis_client.delete(test_key)
+        
+        print("✅ Redis basic operations (set/get/delete) successful")
+        
+    except redis.ConnectionError as e:
+        pytest.fail(f"Redis connection failed: {e}")
+    except redis.RedisError as e:
+        pytest.fail(f"Redis operation failed: {e}")
+    except AssertionError:
+        raise
+    except Exception as e:
+        pytest.fail(f"Unexpected error occurred: {e}")

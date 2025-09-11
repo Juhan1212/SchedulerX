@@ -55,3 +55,9 @@ fi
 
 # uv 설치
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# PostgreSQL 클라이언트 설치 (RDS 연결용)
+sudo yum install -y postgresql15
+
+sudo sed -i 's/^#SystemMaxUse=.*/SystemMaxUse=10M/' /etc/systemd/journald.conf
+sudo sed -i 's/^#MaxRetentionSec=.*/MaxRetentionSec=7day/' /etc/systemd/journald.conf

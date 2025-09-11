@@ -170,8 +170,8 @@ echo "📝 Please edit .env file with your RDS endpoint information"
 sudo tee /etc/systemd/system/kimchi-scheduler.service > /dev/null <<EOF
 [Unit]
 Description=Kimchi Premium Scheduler
-After=network.target redis.service rabbitmq-server.service
-Requires=redis.service rabbitmq-server.service
+After=network.target redis6.service rabbitmq-server.service
+Requires=redis6.service rabbitmq-server.service
 
 [Service]
 Type=exec

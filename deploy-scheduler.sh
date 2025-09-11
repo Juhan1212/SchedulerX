@@ -178,7 +178,7 @@ Type=exec
 User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/kimchi_premium_strategy_implementation
-Environment=PATH=/home/ec2-user/kimchi_premium_strategy_implementation/venv/bin
+Environment=PATH=/home/ec2-user/kimchi_premium_strategy_implementation/.venv/bin
 ExecStart=uv run scheduler.py
 Restart=always
 RestartSec=10

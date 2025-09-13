@@ -4,10 +4,6 @@
 
 echo "🚀 Starting deployment on Amazon Linux EC2..."
 
-# Python 가상환경 생성 및 활성화 (Python 3.11 사용)
-sudo -u ec2-user python3.11 -m venv venv
-sudo -u ec2-user bash -c "source venv/bin/activate && pip install --upgrade pip"
-
 # uv로 패키지 동기화
 uv sync
 
@@ -26,7 +22,7 @@ BITHUMB_ACCESS_KEY=e07105dc17f872426bf9cd6092eab167598d6cb843e021
 BITHUMB_SECRET_KEY=N2FlZTlhMzZiYjk2ZjIwNzAyZDUxOWY4Nzc0MjE4ODljYjYyOTFlOGJkNjY1MzhmNmJiZjRhZWIyMmI2MA==
 GATEIO_API_KEY=63bb1b5c4dee3aa890c9dc33653ed1a8
 GATEIO_SECRET_KEY=2adf281422945ab760a66072c1de9f81f2c423047c0a01113b4fc9bdf35c6942
-DATABASE_URL=postgresql://postgres:qVUR3fUBgGb$z77EU6S-X_:6d8*F@postgresdb.cjoqmc0qg73c.ap-northeast-2.rds.amazonaws.com:5432/postgres
+DATABASE_URL=postgresql://postgres:jXg4zJRdI]Y5.*Ii#*CeNjiSLFWN@postgresdb.cjoqmc0qg73c.ap-northeast-2.rds.amazonaws.com:5432/postgres
 ENCODING_KEY=secret_key
 ENCODING_ALGORITHM=HS256
 TELEGRAM_BOT_TOKEN=7560818075:AAE7Kf8NF8sJYeGgbCv7dD7K3dQ9v4ZICbc
@@ -40,12 +36,12 @@ Description=Kimchi Premium Celery Worker
 After=network.target
 
 [Service]
-Type=exec
+Type=simple
 User=ec2-user
 Group=ec2-user
-WorkingDirectory=/home/ec2-user/kimchi_premium_strategy_implementation
-Environment=PATH=/home/ec2-user/kimchi_premium_strategy_implementation/venv/bin
-ExecStart=/home/ec2-user/kimchi_premium_strategy_implementation/venv/bin/celery -A consumer worker --loglevel=info
+WorkingDirectory=/home/ec2-user/SchedulerX
+Environment=PATH=/home/ec2-user/SchedulerX/.venv/bin
+ExecStart=/home/ec2-user/SchedulerX/.venv/bin/celery -A consumer worker --loglevel=info
 Restart=always
 RestartSec=3
 

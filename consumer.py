@@ -141,12 +141,13 @@ def work_task(data, retry_count=0):
 
     try:
         # 현재 테더 가격 조회 ~ 테더 가격 1초 캐시 적용되어있음. 
-        usdt = asyncio.run(get_usdt_ticker_ob_price())
+        loop = asyncio.get_event_loop()
+        usdt = loop.run_until_complete(get_usdt_ticker_ob_price())
         usdt_price = usdt.get('price', 0)
         if usdt_price == 0:
             raise ValueError("테더 가격이 0입니다. API 호출이 실패했을 수 있습니다.")
-        
-        res = asyncio.run(exMgr.calc_exrate_batch(data))
+
+        res = loop.run_until_complete(exMgr.calc_exrate_batch(data))
         if res:
             # redis pub/sub 메시지 발행하여 app에서 환율 업데이트
             redis_client.publish('exchange_rate', json.dumps({
@@ -233,7 +234,7 @@ def work_task(data, retry_count=0):
                     # 포지션 종료
                     if exit_position_flag:
                         # 포지션 종료전 검증 : 우리 서비스 주문내역DB와 실제 거래소 포지션 비교
-                        positionReal = asyncio.run(foreign_ex_cls.get_position_info(item['name']))
+                        positionReal = loop.run_until_complete(foreign_ex_cls.get_position_info(item['name']))
                         position = list(filter(lambda x: float(x.get('size', 0)) > 0, positionReal.get('list', [])))
 
                         # 검증 1. 실제 거래소 포지션이 없으면 skip
@@ -265,7 +266,7 @@ def work_task(data, retry_count=0):
                             continue
 
                         # 포지션 종료
-                        exit_results = asyncio.run(exMgr.exit_position(korean_ex_cls, foreign_ex_cls, item['name'], positionDB['total_kr_volume']))
+                        exit_results = loop.run_until_complete(exMgr.exit_position(korean_ex_cls, foreign_ex_cls, item['name'], positionDB['total_kr_volume']))
                         
                         # foreign_ex_cls.close_position 결과
                         kr_exit_result = exit_results[0] 
@@ -294,12 +295,10 @@ def work_task(data, retry_count=0):
                                 korean_ex_cls.get_order(kr_order_id)
                             )
                             return fr_order_details, kr_order_details
-                        
                         # 주문 체결 대기
                         time.sleep(0.1)
-
                         # 실제 종료 주문 내역 조회
-                        fr_order_details, kr_order_details = asyncio.run(fetch_order_details(fr_order_id, kr_order_id))
+                        fr_order_details, kr_order_details = loop.run_until_complete(fetch_order_details(fr_order_id, kr_order_id))
 
                         # 실제 종료 환율 계산
                         # 해외거래소 종료(청산) 금액 (USDT)
@@ -403,7 +402,7 @@ def work_task(data, retry_count=0):
 '''
                         
                         # 잔액 동시조회 ~ 한쪽만 잔액이 부족해서 한쪽만 들어가는 불상사를 막기위해서             
-                        kr_balance, fr_balance = asyncio.run(get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls))
+                        kr_balance, fr_balance = loop.run_until_complete(get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls))
                         
                         # 검증 1. 한국거래소 잔액과 진입시드 비교 
                         if kr_balance < entry_seed:
@@ -476,7 +475,7 @@ def work_task(data, retry_count=0):
                                 continue
 
                         # 한국거래소 먼저 주문 ~ 주문량을 알아야 같은 주문량으로 해외거래소에서 포지션을 잡을 수 있기 때문
-                        kr_order = asyncio.run(korean_ex_cls.order(item['name'], 'bid', entry_seed))
+                        kr_order = loop.run_until_complete(korean_ex_cls.order(item['name'], 'bid', entry_seed))
                         kr_order_id = kr_order.get('uuid')
                         
                         # for mock test
@@ -503,7 +502,7 @@ def work_task(data, retry_count=0):
                         time.sleep(0.1)
                         
                         # 한국거래소 주문 체결량 조회
-                        kr_order_result = asyncio.run(korean_ex_cls.get_order(kr_order_id))
+                        kr_order_result = loop.run_until_complete(korean_ex_cls.get_order(kr_order_id))
                         
                         # for mock test
                         # kr_order_result = {
@@ -556,7 +555,7 @@ def work_task(data, retry_count=0):
                             continue
                         
                         # 해외거래소 주문최소가능단위 조회
-                        lot_size = asyncio.run(foreign_ex_cls.get_lot_size(item['name']))
+                        lot_size = loop.run_until_complete(foreign_ex_cls.get_lot_size(item['name']))
                         if lot_size is None:
                             logger.error(f"해외거래소 주문 최소 가능 단위 조회 실패 (유저 {user['id']})")
                             message += f'''
@@ -586,7 +585,7 @@ def work_task(data, retry_count=0):
                             continue
                         
                         # 해외거래소 레버리지 설정
-                        fr_leverage = asyncio.run(foreign_ex_cls.set_leverage(item['name'], str(leverage)))
+                        fr_leverage = loop.run_until_complete(foreign_ex_cls.set_leverage(item['name'], str(leverage)))
                         if fr_leverage.get('retMsg') != 'OK' and fr_leverage.get('retMsg') != 'leverage not modified':
                             logger.error(f"해외거래소 레버리지 설정 실패: {fr_leverage} (유저 {user['id']})")
                             message += f'''
@@ -599,7 +598,7 @@ def work_task(data, retry_count=0):
                             continue
 
                         # 해외거래소 주문 실행
-                        fr_order = asyncio.run(foreign_ex_cls.order(item['name'], 'ask', rounded_volume))
+                        fr_order = loop.run_until_complete(foreign_ex_cls.order(item['name'], 'ask', rounded_volume))
                         logger.info(f"해외거래소 주문 결과: {json.dumps(fr_order, indent=2)}")
                         
                         fr_order_id = fr_order.get('result', {}).get('orderId')
@@ -624,7 +623,7 @@ def work_task(data, retry_count=0):
                             continue
                         
                         # 해외거래소 주문 결과 조회
-                        fr_order_result = asyncio.run(foreign_ex_cls.get_order(fr_order_id))
+                        fr_order_result = loop.run_until_complete(foreign_ex_cls.get_order(fr_order_id))
                         # for mock test
                         # fr_order_result = {
                         #     'symbol': 'AXSUSDT', 
@@ -757,7 +756,8 @@ def work_task(data, retry_count=0):
     finally:
         # 작업 완료 후 Telegram 메시지 전송
         if message:
-            asyncio.run(send_telegram(message))
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(send_telegram(message))
             logger.info(f"Telegram 메시지를 전송했습니다: {message}")
 
     logger.info("작업이 성공적으로 완료되었습니다.")

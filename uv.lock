@@ -667,7 +667,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kimchi-premium-strategy-implementation"
+name = "SchedulerX"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

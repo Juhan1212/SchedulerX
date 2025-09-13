@@ -56,6 +56,9 @@ fi
 # uv 설치
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# PostgreSQL 개발 패키지 설치 (psycopg2 빌드를 위해)
+sudo dnf install -y postgresql-devel
+
 # PostgreSQL 클라이언트 설치 (RDS 연결용)
 sudo yum install -y postgresql15
 

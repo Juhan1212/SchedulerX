@@ -1,6 +1,9 @@
 import os
 import pika
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # 실제 RabbitMQ 연결 (환경변수 또는 기본값 사용)
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")

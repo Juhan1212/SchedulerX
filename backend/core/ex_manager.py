@@ -298,40 +298,35 @@ class ExchangeManager:
         except Exception as e:
             logger.error(f"DB에서 users 업데이트 중 에러: {e}")
 
-    def get_common_tickers_from_db(self, exchanges: tuple[Exchange, Exchange]) -> list[str]:
+    def get_common_tickers_from_db(self) -> list[tuple]:
         """
         db에서 공통 진입가능 티커를 반환합니다.
         """
-        if len(exchanges) != 2:
-            raise ValueError("공통 진입가능 티커는 2개의 거래소가 필요합니다.")
         try:
             with self._get_db_cursor() as cursor:
-                cursor.execute(
-                    "SELECT id, eng_name FROM exchanges WHERE eng_name IN (%s, %s)",
-                    (exchanges[0].name, exchanges[1].name)
-                )
-                rows = cursor.fetchall()
-                ex_id_map = {row[1]: row[0] for row in rows}
-                ex1_id = ex_id_map.get(exchanges[0].name)
-                ex2_id = ex_id_map.get(exchanges[1].name)
-                if not ex1_id or not ex2_id:
-                    logger.error("Exchange id not found for one or both exchanges")
-                    return []
                 query = """
-                    SELECT t1.coin_symbol
-                    FROM coins_exchanges t1
-                    INNER JOIN coins_exchanges t2
-                    ON t1.coin_symbol = t2.coin_symbol
-                    WHERE t1.exchange_id = %s AND t2.exchange_id = %s
-                    AND t1.deposit_yn = TRUE
-                    AND t1.withdraw_yn = TRUE
-                    AND t1.coin_symbol != 'USDT'
-                    AND t2.deposit_yn = TRUE
-                    AND t2.withdraw_yn = TRUE
+                    select T1.eng_name, T2.eng_name, T1.coin_symbol
+                    from
+                    (
+                        select KoreanEx.eng_name, KoreanCoin.coin_symbol
+                        from exchanges KoreanEx, coins_exchanges KoreanCoin
+                        where koreanEx.type = 'KR'
+                        and koreanEx.id = KoreanCoin.exchange_id
+                        and KoreanCoin.deposit_yn = true
+                        and KoreanCoin.withdraw_yn = true
+                    ) T1,
+                    (
+                        select ForeignEx.eng_name, ForeignCoin.coin_symbol
+                        from exchanges ForeignEx, coins_exchanges ForeignCoin
+                        where ForeignEx.type = 'Overseas'
+                        and ForeignEx.id = ForeignCoin.exchange_id
+                        and ForeignCoin.deposit_yn = true
+                        and ForeignCoin.withdraw_yn = true
+                    ) T2
+                    where T1.coin_symbol = T2.coin_symbol
                 """
-                cursor.execute(query, (ex1_id, ex2_id))
-                intersection_tickers = [row[0] for row in cursor.fetchall()]
-                return intersection_tickers
+                cursor.execute(query)
+                return cursor.fetchall()
         except Exception as e:
             logger.error(f"DB 에러: {e}")
             return []
@@ -385,41 +380,72 @@ class ExchangeManager:
         }
         
     @staticmethod
-    async def calc_exrate_batch(tickers: list[str], exchange1: str, exchange2: str):
+    async def calc_exrate_batch(tickers: list[tuple[str, str, str]]):
         """
         여러 티커에 대해 여러 시드금액 기준 환율을 일괄 계산합니다.
-        exchange1, exchange2: 거래소 이름(str, 예: 'upbit', 'bybit') 또는 클래스/인스턴스
+        tickers: (exchange1, exchange2, coin_symbol) 형식의 튜플 리스트
         """
         def get_exchange_class(name):
             # 예: 'upbit' -> 'UpbitExchange', 'bybit' -> 'BybitExchange'
             class_name = name.lower().capitalize() + 'Exchange'
             return globals().get(class_name)
 
-        ex1 = exchange1
-        ex2 = exchange2
-        if isinstance(exchange1, str):
-            ex1_class = get_exchange_class(exchange1)
-            if ex1_class is None:
-                raise ValueError(f"Unknown exchange1: {exchange1}")
-            ex1 = ex1_class
-        if isinstance(exchange2, str):
-            ex2_class = get_exchange_class(exchange2)
-            if ex2_class is None:
-                raise ValueError(f"Unknown exchange2: {exchange2}")
-            ex2 = ex2_class
-
-        # 클래스면 클래스 메서드 호출, 인스턴스면 인스턴스 메서드 호출
-        get_orderbook1 = getattr(ex1, 'get_ticker_orderbook')
-        get_orderbook2 = getattr(ex2, 'get_ticker_orderbook')
+        if not tickers:
+            return []
         
-        exchange1_orderbooks = await get_orderbook1(tickers)
-        exchange2_orderbooks = await asyncio.gather(
-            *[get_orderbook2(ticker) for ticker in tickers]
-        )
+        # 거래소별로 그룹화
+        korean_groups = {}  # {exchange_name: [coin_symbols]}
+        foreign_requests = []  # [(exchange_class, coin_symbol, original_index)]
+        
+        for i, (korean_ex, foreign_ex, coin_symbol) in enumerate(tickers):
+            # 한국거래소 그룹화
+            if korean_ex not in korean_groups:
+                korean_groups[korean_ex] = []
+            korean_groups[korean_ex].append((coin_symbol, i))
+            
+            # 해외거래소 요청 준비
+            foreign_ex_class = get_exchange_class(foreign_ex)
+            if foreign_ex_class is None:
+                raise ValueError(f"Unknown foreign exchange: {foreign_ex}")
+            foreign_requests.append((foreign_ex_class, coin_symbol, i))
+        
+        # 한국거래소 배치 요청
+        korean_results = {}  # {original_index: orderbook}
+        
+        for korean_ex_name, coin_data in korean_groups.items():
+            korean_ex_class = get_exchange_class(korean_ex_name)
+            if korean_ex_class is None:
+                raise ValueError(f"Unknown Korean exchange: {korean_ex_name}")
+            
+            coin_symbols = [coin_symbol for coin_symbol, _ in coin_data]
+            indices = [idx for _, idx in coin_data]
+            
+            # 한국거래소는 한 번의 요청으로 여러 코인 처리
+            batch_result = await korean_ex_class.get_ticker_orderbook(coin_symbols)
+            
+            # 결과 매핑
+            for orderbook, original_idx in zip(batch_result, indices):
+                korean_results[original_idx] = orderbook
+        
+        # 해외거래소 병렬 요청
+        foreign_orderbooks = await asyncio.gather(*[
+            foreign_ex_class.get_ticker_orderbook(coin_symbol)
+            for foreign_ex_class, coin_symbol, _ in foreign_requests
+        ])
+        
+        # 해외거래소 결과 매핑
+        foreign_results = {}
+        for (foreign_ex_class, coin_symbol, original_idx), orderbook in zip(foreign_requests, foreign_orderbooks):
+            foreign_results[original_idx] = orderbook
+        
+        # 환율 계산
         results = []
         seeds = [i for i in range(100000, 100_000_001, 100000)] # KRW
+        
+        for i, (korean_ex, foreign_ex, coin_symbol) in enumerate(tickers):
+            ob1 = korean_results[i]
+            ob2 = foreign_results[i]
 
-        for ob1, ob2 in zip(exchange1_orderbooks, exchange2_orderbooks):
             ex_rates = []
             for seed in seeds:
                 available_size = 0
@@ -455,8 +481,11 @@ class ExchangeManager:
                 
             results.append({
                 "name": ob1["ticker"],
+                "korean_ex": korean_ex,
+                "foreign_ex": foreign_ex,
                 "ex_rates": ex_rates
             })
+        
         return results
 
     @staticmethod

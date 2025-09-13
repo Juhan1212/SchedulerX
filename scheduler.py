@@ -56,14 +56,12 @@ app = Celery('producer')
 app.config_from_object('celeryconfig')
 
 @app.task
-def calculate_orderbook_exrate_task(tickers: list[str], exchange1: str, exchange2: str):
+def calculate_orderbook_exrate_task(tickers: list[tuple]):
     """
     worker가 tickers를 받아서 환율을 계산하는 작업입니다.
     consumer.py에서 이 작업을 구현하고 실행합니다.
     Args:
-        tickers (list): 티커 리스트
-        exchange1 (str): 첫 번째 거래소 이름
-        exchange2 (str): 두 번째 거래소 이름
+        tickers (list[tuple]): (upbit, bybit, coin_symbol) 형식의 튜플 리스트
     """
     pass
 
@@ -79,37 +77,30 @@ def celery_worker_job():
     스케줄러가 worker 작업을 스케줄링합니다.
     Celery publish를 asyncio loop의 run_in_executor로 비동기 실행하여
     스케줄러 스레드풀 block을 방지합니다.
-    upbit/bybit, upbit/gateio 조합 모두에 대해 작업을 생성합니다.
     """
     try:
-        exchange_pairs = [
-            ("upbit", "bybit"),
-            ("upbit", "gateio"),
-        ]
         batch_size = 10
 
         async def async_publish():
             total_tasks = 0
             loop = asyncio.get_running_loop()
             
-            for korean_ex, foreign_ex in exchange_pairs:
-                tickers = exMgr.get_common_tickers_from_db((exMgr.exchanges[korean_ex], exMgr.exchanges[foreign_ex]))
-                logger.debug(f"공통 진입가능 티커 ({korean_ex}, {foreign_ex}): {tickers}")
-                
-                if not tickers:
-                    logger.info(f"공통 진입가능 티커가 없습니다: {korean_ex}, {foreign_ex}")
-                    continue
-                
-                tasks = []
-                for i in range(0, len(tickers), batch_size):
-                    batch = tickers[i:i + batch_size]
-                    tasks.append(calculate_orderbook_exrate_task.s(batch, korean_ex, foreign_ex))
+            tickers = exMgr.get_common_tickers_from_db()
+            
+            if not tickers:
+                logger.info(f"공통 진입가능 티커가 없습니다")
+                return
 
-                total = len(tasks)
-                total_tasks += total
-                if tasks:
-                    # Celery publish를 thread executor에 위임
-                    loop.run_in_executor(None, lambda: group(tasks).apply_async(retry=False, expires=5))
+            tasks = []
+            for i in range(0, len(tickers), batch_size):
+                batch = tickers[i:i + batch_size]
+                tasks.append(calculate_orderbook_exrate_task.s(batch))
+
+            total = len(tasks)
+            total_tasks += total
+            if tasks:
+                # Celery publish를 thread executor에 위임
+                loop.run_in_executor(None, lambda: group(tasks).apply_async(retry=False, expires=5))
             logger.info(f"{total_tasks}개 tasks를 publish to celery broker")
 
         asyncio.run(async_publish())

@@ -78,7 +78,7 @@ async def test_get_depo_with_pos_tickers_failure(upbit_service):
         await upbit_service.get_depo_with_pos_tickers()
 
 @pytest.mark.asyncio
-async def test_get_orderbook_success(upbit_service):
+async def test_get_ticker_orderbook_success():
     # Upbit API의 성공적인 응답을 모킹합니다.
     # mock_response = {
     #     "orderbook_units": [
@@ -92,8 +92,8 @@ async def test_get_orderbook_success(upbit_service):
     # ))
 
     # get_orderbook 호출
-    orderbook = await upbit_service.get_orderbook("BTC")
-    print(orderbook)
+    orderbook = await UpbitExchange.get_ticker_orderbook(['BTC', 'ETH'])
+    print(json.dumps(orderbook, indent=2))
 
     # 결과 검증
     # assert len(orderbook["orderbook_units"]) == 2

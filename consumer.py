@@ -121,16 +121,21 @@ def round_volume_to_lot_size(volume, lot_size):
     rounded_volume = volume_decimal.quantize(lot_size_decimal)
     return float(rounded_volume)
 
+# 최적화용 함수              
+async def get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls):
+    return await asyncio.gather(
+        korean_ex_cls.get_available_balance(),
+        foreign_ex_cls.get_available_balance()
+    )
+
 @app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True, soft_time_limit=5)
-def work_task(data, korean_ex, foreign_ex, retry_count=0):
+def work_task(data, retry_count=0):
     """
     Celery 작업을 처리하는 함수입니다.
     Args:
-        data (list): 티커 리스트
-    korean_ex (str): 국내 거래소 이름
-    foreign_ex (str): 해외 거래소 이름
+        data (list[tuple]): (upbit, bybit, coin_symbol) 형식의 튜플 리스트
     """
-    logger.debug(f"수신된 데이터 : {data}, {korean_ex}, {foreign_ex}")
+    logger.debug(f"수신된 데이터 : {data}")
 
     message = ""
 
@@ -141,40 +146,32 @@ def work_task(data, korean_ex, foreign_ex, retry_count=0):
         if usdt_price == 0:
             raise ValueError("테더 가격이 0입니다. API 호출이 실패했을 수 있습니다.")
         
-        res = asyncio.run(exMgr.calc_exrate_batch(data, korean_ex, foreign_ex))
+        res = asyncio.run(exMgr.calc_exrate_batch(data))
         if res:
             # redis pub/sub 메시지 발행하여 app에서 환율 업데이트
             redis_client.publish('exchange_rate', json.dumps({
-                "korean_ex": korean_ex,
-                "foreign_ex": foreign_ex,
                 "results": res
             }))
-            
-            # 거래소 객체 생성
-            korean_ex_instance = exMgr.exchanges.get(korean_ex)
-            if not isinstance(korean_ex_instance, KoreanExchange):
-                logger.error(f"{korean_ex} is not a KoreanExchange instance.")
-                return
-            korean_ex_cls: KoreanExchange = korean_ex_instance
-
-            foreign_ex_instance = exMgr.exchanges.get(foreign_ex)
-            if not isinstance(foreign_ex_instance, ForeignExchange):
-                logger.error(f"{foreign_ex} is not a ForeignExchange instance.")
-                return
-            foreign_ex_cls: ForeignExchange = foreign_ex_instance
-            
-            # 최적화용 함수              
-            async def get_both_ex_available_balance():
-                return await asyncio.gather(
-                    korean_ex_cls.get_available_balance(),
-                    foreign_ex_cls.get_available_balance()
-                )
-
-            # 자동매매 돌리면서 두 거래소 모두 연결된 고객 조회
-            user_ids = exMgr.get_users_with_both_exchanges_running_autotrading(korean_ex, foreign_ex)
-        
             # 티커별로 돌면서
             for item in res:
+                korean_ex = item.get('korean_ex')
+                foreign_ex = item.get('foreign_ex')
+                # 거래소 객체 생성
+                korean_ex_instance = exMgr.exchanges.get(korean_ex)
+                if not isinstance(korean_ex_instance, KoreanExchange):
+                    logger.error(f"{korean_ex} is not a KoreanExchange instance.")
+                    return
+                korean_ex_cls: KoreanExchange = korean_ex_instance
+
+                foreign_ex_instance = exMgr.exchanges.get(foreign_ex)
+                if not isinstance(foreign_ex_instance, ForeignExchange):
+                    logger.error(f"{foreign_ex} is not a ForeignExchange instance.")
+                    return
+                foreign_ex_cls: ForeignExchange = foreign_ex_instance
+
+                # 자동매매 돌리면서 두 거래소 모두 연결된 고객 조회
+                user_ids = exMgr.get_users_with_both_exchanges_running_autotrading(korean_ex, foreign_ex)
+                
                 # 자동매매 연동된 고객들 돌면서
                 for user in user_ids:
                     # 유저 데이터
@@ -406,7 +403,7 @@ def work_task(data, korean_ex, foreign_ex, retry_count=0):
 '''
                         
                         # 잔액 동시조회 ~ 한쪽만 잔액이 부족해서 한쪽만 들어가는 불상사를 막기위해서             
-                        kr_balance, fr_balance = asyncio.run(get_both_ex_available_balance())
+                        kr_balance, fr_balance = asyncio.run(get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls))
                         
                         # 검증 1. 한국거래소 잔액과 진입시드 비교 
                         if kr_balance < entry_seed:
@@ -742,7 +739,7 @@ def work_task(data, korean_ex, foreign_ex, retry_count=0):
         if retry_count < 3:  # 무한루프 방지
             reconnect_redis()
             logger.info("작업 전체를 재시도합니다.")
-            work_task(data, korean_ex, foreign_ex, retry_count + 1)
+            work_task(data, retry_count + 1)
         else:
             logger.error("최대 재시도 횟수 초과. 작업을 중단합니다.")
             return

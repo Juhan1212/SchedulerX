@@ -68,3 +68,6 @@ sudo sed -i 's/^#MaxRetentionSec=.*/MaxRetentionSec=7day/' /etc/systemd/journald
 
 # nodejs 설치 (프론트엔드 빌드용)
 sudo yum install -y nodejs
+
+# 타임존 설정 (서울)
+sudo timedatectl set-timezone Asia/Seoul

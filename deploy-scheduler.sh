@@ -174,7 +174,7 @@ After=network.target redis6.service rabbitmq-server.service
 Requires=redis6.service rabbitmq-server.service
 
 [Service]
-Type=exec
+Type=simple
 User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/SchedulerX

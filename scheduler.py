@@ -138,6 +138,6 @@ if __name__ == "__main__":
         'misfire_grace_time': 10,  # 작업이 지연되었을 때 최대 10초까지 기다림
         'max_instances': 2,  # 동시에 실행되는 작업의 최대 인스턴스 수
     })
-    scheduler.add_job(renew_tickers_job, 'cron', minute='*/5')  # 5분마다 실행
+    scheduler.add_job(renew_tickers_job, 'cron', minute='*/5', args=[exMgr])  # 5분마다 실행
     scheduler.add_job(celery_worker_job, 'interval', seconds=5)  # 10초마다 작업 스케줄링
     scheduler.start()

@@ -59,5 +59,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # PostgreSQL 클라이언트 설치 (RDS 연결용)
 sudo yum install -y postgresql15
 
+# 저널 로그 설정 (로그 용량 제한 및 보존 기간 설정)
 sudo sed -i 's/^#SystemMaxUse=.*/SystemMaxUse=10M/' /etc/systemd/journald.conf
 sudo sed -i 's/^#MaxRetentionSec=.*/MaxRetentionSec=7day/' /etc/systemd/journald.conf
+
+# nodejs 설치 (프론트엔드 빌드용)
+sudo yum install -y nodejs

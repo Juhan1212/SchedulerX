@@ -1,6 +1,9 @@
 import os
 import redis
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # 실제 Redis 연결 (환경변수 또는 기본값 사용)
 REDIS_HOST = os.getenv("REDIS_HOST")

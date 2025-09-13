@@ -27,7 +27,7 @@ loggers:
     propagate: no
 
   apscheduler: # for trouble shooting
-    level: INFO
+    level: WARNING
     handlers: [file_handler]
     propagate: no
 

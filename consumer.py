@@ -1,7 +1,7 @@
 from decimal import ROUND_DOWN, Decimal
 import json
 from pathlib import Path
-from cachetools import TTLCache, cached
+from async_lru import alru_cache
 import asyncio
 import os
 import logging
@@ -103,10 +103,8 @@ EXCHANGE_CLASS_MAP = {
     # 필요시 추가
 }
 
-# 테더 가격 호출 api 캐시설정            
-usdt_cache = TTLCache(maxsize=10, ttl=1)
-
-@cached(usdt_cache)
+# 테더 가격 호출 api async 캐시설정
+@alru_cache(maxsize=10, ttl=1)
 async def get_usdt_ticker_ob_price():
     return await UpbitExchange.get_ticker_ob_price('USDT')
 

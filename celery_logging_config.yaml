@@ -17,17 +17,17 @@ handlers:
 
 loggers:
   consumer:
-    level: INFO
+    level: WARNING
     handlers: [file_handler]
     propagate: no
 
   scheduler:
-    level: INFO
+    level: WARNING
     handlers: [file_handler]
     propagate: no
 
   apscheduler: # for trouble shooting
-    level: DEBUG
+    level: INFO
     handlers: [file_handler]
     propagate: no
 

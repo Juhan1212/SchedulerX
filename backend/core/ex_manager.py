@@ -440,7 +440,7 @@ class ExchangeManager:
         
         # 환율 계산
         results = []
-        seeds = [i for i in range(100000, 100_000_001, 100000)] # KRW
+        seeds = [i for i in range(1000000, 100_000_001, 1000000)] # KRW
         
         for i, (korean_ex, foreign_ex, coin_symbol) in enumerate(tickers):
             ob1 = korean_results[i]

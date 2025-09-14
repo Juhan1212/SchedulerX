@@ -126,13 +126,14 @@ async def get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls):
         foreign_ex_cls.get_available_balance()
     )
 
-@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True, soft_time_limit=5)
+@app.task(name='producer.calculate_orderbook_exrate_task', ignore_result=True, soft_time_limit=30)
 def work_task(data, retry_count=0):
     """
     Celery 작업을 처리하는 함수입니다.
     Args:
         data (list[tuple]): (upbit, bybit, coin_symbol) 형식의 튜플 리스트
     """
+    start_time = time.time()
     logger.debug(f"수신된 데이터 : {data}")
 
     message = ""
@@ -757,6 +758,10 @@ def work_task(data, retry_count=0):
             loop = asyncio.get_event_loop()
             loop.run_until_complete(send_telegram(message))
             logger.info(f"Telegram 메시지를 전송했습니다: {message}")
+        
+        # 작업 실행 시간 로그
+        execution_time = time.time() - start_time
+        logger.info(f"work_task 실행 시간: {execution_time:.2f}초")
 
     logger.info("작업이 성공적으로 완료되었습니다.")
     

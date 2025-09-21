@@ -7,11 +7,12 @@ echo "🚀 Starting deployment on Amazon Linux EC2..."
 # uv로 패키지 동기화
 uv sync
 
-# 환경변수 파일 생성 (Worker용 - 스케줄러 인스턴스 정보 입력 필요)
-sudo -u ec2-user tee .env > /dev/null <<EOF
+# 환경변수 파일이 없을 때만 생성 (Worker용 - 스케줄러 인스턴스 정보 입력 필요)
+if [ ! -f .env ]; then
+	sudo -u ec2-user tee .env > /dev/null <<EOF
 # Environment variables for Worker
-REDIS_HOST=3.39.252.79
-RABBITMQ_HOST=3.39.252.79
+REDIS_HOST=10.0.5.242
+RABBITMQ_HOST=10.0.5.242
 RABBITMQ_USER=celery
 RABBITMQ_PASSWORD=123
 UPBIT_ACCESS_KEY=GPni76hBOOmIiFwAyEIQlUibHiX4JuWawK4RkeDR
@@ -28,6 +29,7 @@ ENCODING_ALGORITHM=HS256
 TELEGRAM_BOT_TOKEN=7560818075:AAE7Kf8NF8sJYeGgbCv7dD7K3dQ9v4ZICbc
 TELEGRAM_CHAT_ID=2085145028
 EOF
+fi
 
 # Celery Worker를 위한 systemd 서비스 생성
 sudo tee /etc/systemd/system/kimchi-celery-worker.service > /dev/null <<EOF

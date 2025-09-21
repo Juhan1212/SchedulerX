@@ -40,16 +40,9 @@ sudo yum install -y git wget curl openssl-devel bzip2-devel libffi-devel zlib-de
 # Python 3.11 설치 (Amazon Linux 2023의 경우)
 sudo yum install -y python3.11 python3.11-pip python3.11-devel
 
-# Python 3.11이 없는 경우 소스에서 컴파일 설치
-if ! command -v python3.11 &> /dev/null; then
-    echo "📦 Installing Python 3.11 from source..."
-    cd /tmp
-    wget https://www.python.org/ftp/python/3.11.7/Python-3.11.7.tgz
-    tar xzf Python-3.11.7.tgz
-    cd Python-3.11.7
-    ./configure --enable-optimizations
-    make altinstall
-    sudo ln -sf /usr/local/bin/python3.11 /usr/bin/python3.11
+# 시스템 전체에서 python 명령이 python3.11을 가리키도록 심볼릭 링크 설정
+if [ -x /usr/bin/python3.11 ]; then
+    sudo ln -sf /usr/bin/python3.11 /usr/bin/python
     sudo ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3.11
 fi
 

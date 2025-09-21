@@ -46,6 +46,7 @@ Environment=PATH=/home/ec2-user/SchedulerX/.venv/bin
 ExecStart=/home/ec2-user/SchedulerX/.venv/bin/celery -A consumer worker --loglevel=info --concurrency=1
 Restart=always
 RestartSec=3
+CPUQuota=15%
 
 [Install]
 WantedBy=multi-user.target

@@ -116,7 +116,7 @@ exMgr.register_exchange("bithumb", BithumbExchange.from_env())
 def round_volume_to_lot_size(volume, lot_size):
     lot_size_decimal = Decimal(str(lot_size))
     volume_decimal = Decimal(str(volume))
-    rounded_volume = volume_decimal.quantize(lot_size_decimal)
+    rounded_volume = (volume_decimal // lot_size_decimal) * lot_size_decimal
     return float(rounded_volume)
 
 # 최적화용 함수              
@@ -410,7 +410,7 @@ def work_task(data, retry_count=0):
                         if kr_balance < entry_seed:
                             logger.info(f'''
                                             유저 : {user['id']}
-                                            해외거래소 : {foreign_ex}
+                                            한국거래소 : {korean_ex}
                                             포지션 주문 실패 
                                             사유 : 잔액부족
                                             주문가능잔액 : {kr_balance}''')
@@ -418,7 +418,7 @@ def work_task(data, retry_count=0):
 ❌ 포지션 진입 실패
 ┌─────────────────────
 │ 👤 유저 : {user['id']}
-│ 🌍 거래소 : {foreign_ex}
+│ 🌍 거래소 : {korean_ex}
 │ ❗ 사유 : 잔액부족
 │ 💰 주문가능잔액 : {kr_balance}₩
 └─────────────────────
@@ -501,7 +501,7 @@ def work_task(data, retry_count=0):
                             continue
                         
                         # 주문 체결 대기
-                        time.sleep(0.1)
+                        time.sleep(0.2)
                         
                         # 한국거래소 주문 체결량 조회
                         kr_order_result = loop.run_until_complete(korean_ex_cls.get_order(kr_order_id))
@@ -536,6 +536,10 @@ def work_task(data, retry_count=0):
                         #         }
                         #     ]
                         # }
+                        if kr_order_result.get('trades', []) == []:
+                            time.sleep(0.2)
+                            # 2차 조회
+                            kr_order_result = loop.run_until_complete(korean_ex_cls.get_order(kr_order_id))
 
                         logger.info(f"한국거래소 주문 결과: {json.dumps(kr_order_result, indent=2)}")
 
@@ -624,6 +628,8 @@ def work_task(data, retry_count=0):
 '''
                             continue
                         
+                        time.sleep(0.1)
+                        
                         # 해외거래소 주문 결과 조회
                         fr_order_result = loop.run_until_complete(foreign_ex_cls.get_order(fr_order_id))
                         # for mock test
@@ -672,6 +678,11 @@ def work_task(data, retry_count=0):
                         #     'smpOrderId': '', 
                         #     'triggerBy': ''
                         # }
+                        
+                        if fr_order_result.get('orderStatus') != 'Filled':
+                            time.sleep(0.2)
+                            # 2차 조회
+                            fr_order_result = loop.run_until_complete(foreign_ex_cls.get_order(fr_order_id))
                         
                         fr_order_volume = Decimal(str(fr_order_result.get('qty', 0)))
                         fr_order_funds = Decimal(str(fr_order_result.get('cumExecValue', 0)))

@@ -222,9 +222,9 @@ def work_task(data, retry_count=0):
                     # 자동 모드인 경우, 진입환율 대비 1% 이상 상승했는지 확인 
                     # todo : AI를 적용해서 더 개선할 수 있는 방안 고민    
                     else:
-                        if current_ex_rate <= float(entry_rate) * 0.99:
+                        if current_ex_rate <= float(usdt_price) * 0.99:
                             entry_position_flag = True
-                        if current_ex_rate >= float(entry_rate) * 1.01:
+                        if current_ex_rate >= float(usdt_price) * 1.01:
                             exit_position_flag = True
                             
                     # for mock test

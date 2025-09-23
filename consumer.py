@@ -311,8 +311,12 @@ def work_task(data, retry_count=0):
 
                         # 한국거래소 종료(매도) 금액 (KRW)
                         kr_order_volume = Decimal(str(kr_order_details.get('executed_volume')))
-                        kr_order_funds = Decimal(str(kr_order_details.get('trades', [])[0].get('funds', 0)))
-                        kr_entry_price = Decimal(str(kr_order_details.get('trades', [])[0].get('price', 0)))
+                        kr_order_funds = Decimal(str(kr_order_details.get('price', 0)))
+                        executed_volume = Decimal(str(kr_order_details.get('executed_volume', 0)))
+                        if executed_volume > 0:
+                            kr_entry_price = (kr_order_funds / executed_volume).quantize(Decimal('0.00000000'))
+                        else:
+                            kr_entry_price = Decimal('0.00000000')
                         kr_entry_fee = Decimal(str(kr_order_details.get('paid_fee', 0.0)))
 
                         # 실제 종료 환율
@@ -549,8 +553,12 @@ def work_task(data, retry_count=0):
                         logger.info(f"한국거래소 주문 결과: {json.dumps(kr_order_result, indent=2)}")
 
                         kr_order_volume = Decimal(str(kr_order_result.get('executed_volume')))
-                        kr_order_funds = Decimal(str(kr_order_result.get('trades', [])[0].get('funds', 0)))
-                        kr_entry_price = Decimal(str(kr_order_result.get('trades', [])[0].get('price', 0)))
+                        kr_order_funds = Decimal(str(kr_order_result.get('price', 0)))
+                        executed_volume = Decimal(str(kr_order_result.get('executed_volume', 0)))
+                        if executed_volume > 0:
+                            kr_entry_price = (kr_order_funds / executed_volume).quantize(Decimal('0.00000000'))
+                        else:
+                            kr_entry_price = Decimal('0.00000000')
                         kr_entry_fee = Decimal(str(kr_order_result.get('reserved_fee', 0.0)))
 
                         if not kr_order_volume or not kr_order_funds:

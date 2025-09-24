@@ -222,8 +222,14 @@ def work_task(data, retry_count=0):
                     # todo : AI를 적용해서 더 개선할 수 있는 방안 고민    
                     # 자동 모드인 경우, 진입환율 대비 1% 이상 상승했는지 확인 
                     else:
-                        if current_ex_rate >= float(entry_rate) * 1.01:
-                            exit_position_flag = True
+                        if current_ex_rate <= float(usdt_price) * 0.99:
+                            entry_position_flag = True
+                        else:
+                            positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
+                            if positionDB:
+                                avg_entry_rate = positionDB.get('avg_entry_rate', 0)
+                                if current_ex_rate >= float(avg_entry_rate) * 1.01:
+                                    exit_position_flag = True
                             
                     # for mock test
                     # entry_position_flag = True

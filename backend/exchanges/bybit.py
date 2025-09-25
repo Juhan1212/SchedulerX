@@ -26,7 +26,7 @@ class BybitExchange(ForeignExchange):
     name = "bybit"
     server_url = "https://api.bybit.com"
 
-    def __init__(self, api_key: str, secret_key: str):
+    def __init__(self, api_key: str = "", secret_key: str = ""):
         self.api_key = api_key
         self.secret_key = secret_key
 
@@ -93,7 +93,7 @@ class BybitExchange(ForeignExchange):
             Exception: API 호출 실패 시 발생하는 예외
         """
         try:
-            url = f"{cls.server_url}/v5/market/orderbook?category=linear&symbol={ticker}USDT"
+            url = f"{cls.server_url}/v5/market/orderbook?category=linear&symbol={ticker}USDT&limit=500"
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:

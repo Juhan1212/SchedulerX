@@ -137,7 +137,6 @@ def work_task(data, retry_count=0):
     logger.debug(f"수신된 데이터 : {data}")
 
     message = ""
-    debug = ""
 
     try:
         # 현재 테더 가격 조회 ~ 테더 가격 1초 캐시 적용되어있음. 
@@ -204,7 +203,11 @@ def work_task(data, retry_count=0):
                         continue
                         
                     current_ex_rate = ex_rate_info['ex_rate']
-                    debug = f"티커: {item['name']}, 환율: {current_ex_rate}, 데이터: {ex_rate_info['seed']}:{ex_rate_info['ex_rate']}\n"
+                    
+                    # 방어로직 - 호가창 모두 소진되어도 주문금액이 남는 경우 제대로된 환율 계산 불가
+                    if current_ex_rate is None:
+                        logger.error(f"환율 계산에 실패했습니다. 호가창이 모두 소진되었을 수 있습니다. user: {user['id']}, ticker: {item['name']}, entry_seed: {entry_seed}")
+                        continue
 
                     # 검증 1. 파라미터의 코인과 동일한 코인을 선택했는지 확인 ~ 자동모드이면 검증 안함
                     if coin_mode == 'custom':
@@ -776,7 +779,6 @@ def work_task(data, retry_count=0):
             return
     except Exception as e:
         logger.error(f"작업 처리 중 알 수 없는 에러가 발생했습니다: {e}", exc_info=True)
-        logger.error(debug)
         message += f'''
 ❌ 시스템 오류
 ┌─────────────────────

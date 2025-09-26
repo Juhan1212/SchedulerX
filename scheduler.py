@@ -100,7 +100,7 @@ def celery_worker_job():
             total_tasks += total
             if tasks:
                 # Celery publish를 thread executor에 위임
-                loop.run_in_executor(None, lambda: group(tasks).apply_async(retry=False, expires=5))
+                loop.run_in_executor(None, lambda: group(tasks).apply_async(retry=False, expires=30))
             logger.info(f"{total_tasks}개 tasks를 publish to celery broker")
 
         asyncio.run(async_publish())

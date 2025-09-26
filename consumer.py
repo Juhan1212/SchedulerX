@@ -137,6 +137,7 @@ def work_task(data, retry_count=0):
     logger.debug(f"수신된 데이터 : {data}")
 
     message = ""
+    calc_exrate_batch_failed = False
 
     try:
         # 현재 테더 가격 조회 ~ 테더 가격 1초 캐시 적용되어있음. 
@@ -146,7 +147,14 @@ def work_task(data, retry_count=0):
         if usdt_price == 0:
             raise ValueError("테더 가격이 0입니다. API 호출이 실패했을 수 있습니다.")
 
-        res = loop.run_until_complete(exMgr.calc_exrate_batch(data))
+        try:
+            res = loop.run_until_complete(exMgr.calc_exrate_batch(data))
+        except Exception as e:
+            logger.error(f"exMgr.calc_exrate_batch 실행 중 에러 발생: {e}", exc_info=True)
+            calc_exrate_batch_failed = True
+            message = ""  # calc_exrate_batch 실패 시 텔레그램 메시지 무조건 미전송
+            raise  # 예외를 상위 except로 전달
+
         if res:
             # redis pub/sub 메시지 발행하여 app에서 환율 업데이트
             redis_client.publish('exchange_rate', json.dumps({
@@ -779,7 +787,9 @@ def work_task(data, retry_count=0):
             return
     except Exception as e:
         logger.error(f"작업 처리 중 알 수 없는 에러가 발생했습니다: {e}", exc_info=True)
-        message += f'''
+        # exMgr.calc_exrate_batch에서 발생한 에러는 이미 위에서 처리됨 (message = "")
+        if not calc_exrate_batch_failed:
+            message += f'''
 ❌ 시스템 오류
 ┌─────────────────────
 │ ⚠️  작업 처리 중 알 수 없는 에러가 발생했습니다
@@ -790,7 +800,11 @@ def work_task(data, retry_count=0):
         return
     finally:
         # 작업 완료 후 Telegram 메시지 전송
-        if message:
+        import sys
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        # exMgr.calc_exrate_batch에서 에러가 난 경우에는 무조건 미전송
+        if message and not calc_exrate_batch_failed:
+            # Exception이 발생하지 않은 경우 또는 calc_exrate_batch 외의 에러인 경우 메시지 전송
             loop = asyncio.get_event_loop()
             loop.run_until_complete(send_telegram(message))
             logger.info(f"Telegram 메시지를 전송했습니다: {message}")

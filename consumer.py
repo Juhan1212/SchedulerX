@@ -800,9 +800,7 @@ def work_task(data, retry_count=0):
         return
     finally:
         # 작업 완료 후 Telegram 메시지 전송
-        import sys
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        # exMgr.calc_exrate_batch에서 에러가 난 경우에는 무조건 미전송
+        # exMgr.calc_exrate_batch에서 에러가 난 경우에는 무조건 미전송 ~ 빗썸에서 잘못된 응답을 내려줘서 발생한 문제일 때가 많기 때문
         if message and not calc_exrate_batch_failed:
             # Exception이 발생하지 않은 경우 또는 calc_exrate_batch 외의 에러인 경우 메시지 전송
             loop = asyncio.get_event_loop()

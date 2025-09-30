@@ -17,6 +17,8 @@ from backend.exchanges.bithumb import BithumbExchange
 from backend.exchanges.bybit import BybitExchange
 from backend.exchanges.upbit import UpbitExchange
 from backend.utils.telegram import send_telegram
+import gzip
+import base64
 
 load_dotenv()
 
@@ -156,10 +158,11 @@ def work_task(data, retry_count=0):
             raise  # 예외를 상위 except로 전달
 
         if res:
-            # redis pub/sub 메시지 발행하여 app에서 환율 업데이트
-            redis_client.publish('exchange_rate', json.dumps({
-                "results": res
-            }))
+            # redis pub/sub 메시지 발행: 데이터 gzip 압축 + base64 인코딩
+            raw_json = json.dumps({"results": res})
+            compressed = gzip.compress(raw_json.encode('utf-8'))
+            encoded = base64.b64encode(compressed).decode('utf-8')
+            redis_client.publish('exchange_rate', encoded)
             # 티커별로 돌면서
             for item in res:
                 korean_ex = item.get('korean_ex')

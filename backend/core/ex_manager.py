@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from backend.exchanges.base import Exchange, ForeignExchange, KoreanExchange
 from backend.utils.safe_numeric import safe_numeric
 from dotenv import load_dotenv
+from decimal import Decimal, ROUND_HALF_UP
+
 
 load_dotenv()
 
@@ -372,11 +374,13 @@ class ExchangeManager:
         if upbit_available_size == 0 or bybit_quote_volume == 0:
             raise ValueError("Available size or quote volume is zero, cannot calculate exchange rate.")
         
-        # 환율 계산
-        exchange_rate = seed / bybit_quote_volume
+        # 환율 계산 (Decimal, 소수점 2째자리 반올림)
+        from decimal import Decimal, ROUND_HALF_UP
+        exchange_rate = Decimal(str(seed)) / Decimal(str(bybit_quote_volume))
+        exchange_rate = exchange_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return {
             "ticker": ticker,
-            "exchange_rate": exchange_rate
+            "exchange_rate": float(exchange_rate)
         }
         
     @staticmethod
@@ -472,7 +476,9 @@ class ExchangeManager:
                 if available_size == 0 or quote_volume == 0:
                     exchange_rate = None
                 else:
-                    exchange_rate = seed / quote_volume
+                    exchange_rate = Decimal(str(seed)) / Decimal(str(quote_volume))
+                    exchange_rate = exchange_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    exchange_rate = float(exchange_rate)
 
                 ex_rates.append({
                     'seed': seed,

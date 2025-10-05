@@ -1,0 +1,89 @@
+graph TB
+    subgraph "Client Layer"
+        WEB[Web Application<br/>React Router + TypeScript]
+        MOBILE[Mobile App<br/>Future]
+    end
+
+    subgraph "API Gateway"
+        FASTAPI[FastAPI Server<br/>Main Application]
+    end
+
+    subgraph "Scheduler Instance - EC2 t3.micro"
+        SCHEDULER[APScheduler<br/>Ticker Updater<br/>Every 5 min]
+        PRODUCER[Celery Producer<br/>RabbitMQ Publisher<br/>Every 30 sec]
+        REDIS_LOCAL[Redis Server<br/>Pub/Sub + Cache]
+        RABBITMQ[RabbitMQ<br/>Message Broker]
+    end
+
+    subgraph "Worker Instances - EC2 t2.micro x5"
+        WORKER1[Celery Worker 1<br/>Consumer]
+        WORKER2[Celery Worker 2<br/>Consumer]
+        WORKER3[Celery Worker 3<br/>Consumer]
+        WORKER4[Celery Worker 4<br/>Consumer]
+        WORKER5[Celery Worker 5<br/>Consumer]
+    end
+
+    subgraph "Database Layer"
+        RDS[(PostgreSQL RDS<br/>User/Strategy/Position Data)]
+    end
+
+    subgraph "External APIs"
+        UPBIT[Upbit Exchange<br/>30 req/sec]
+        BITHUMB[Bithumb Exchange]
+        BYBIT[Bybit Exchange<br/>120 req/sec]
+        BINANCE[Binance Exchange]
+    end
+
+    subgraph "Core Business Logic"
+        EXMGR[ExchangeManager<br/>환율 계산 & 주문 관리]
+        AUTOTRADING[Auto Trading Engine<br/>포지션 진입/종료]
+    end
+
+    %% Client to API
+    WEB -->|HTTP/REST| FASTAPI
+    WEB -->|SSE Real-time| REDIS_LOCAL
+
+    %% Scheduler Flow
+    SCHEDULER -->|Update Tickers| RDS
+    SCHEDULER -->|Fetch Common Tickers| RDS
+    PRODUCER -->|Enqueue Tasks| RABBITMQ
+    
+    %% Worker Flow
+    RABBITMQ -->|Poll Tasks| WORKER1
+    RABBITMQ -->|Poll Tasks| WORKER2
+    RABBITMQ -->|Poll Tasks| WORKER3
+    RABBITMQ -->|Poll Tasks| WORKER4
+    RABBITMQ -->|Poll Tasks| WORKER5
+    
+    WORKER1 & WORKER2 & WORKER3 & WORKER4 & WORKER5 -->|Calculate Exchange Rate| EXMGR
+    EXMGR -->|Fetch Orderbook| UPBIT
+    EXMGR -->|Fetch Orderbook| BITHUMB
+    EXMGR -->|Fetch Orderbook| BYBIT
+    EXMGR -->|Fetch Orderbook| BINANCE
+    
+    %% Auto Trading
+    EXMGR -->|Publish Premium Data<br/>gzip compressed| REDIS_LOCAL
+    EXMGR -->|Check Auto Trading Users| RDS
+    EXMGR -->|Execute Orders| AUTOTRADING
+    AUTOTRADING -->|Place Orders| UPBIT
+    AUTOTRADING -->|Place Orders| BYBIT
+    AUTOTRADING -->|Save Position Data| RDS
+    
+    %% API to Database
+    FASTAPI -->|CRUD Operations| RDS
+    FASTAPI -->|Cache/Session| REDIS_LOCAL
+
+    %% Styling
+    classDef client fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef scheduler fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    classDef worker fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef database fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef external fill:#ffccbc,stroke:#bf360c,stroke-width:2px,color:#000
+    classDef core fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
+    
+    class WEB,MOBILE client
+    class SCHEDULER,PRODUCER,REDIS_LOCAL scheduler
+    class WORKER1,WORKER2,WORKER3,WORKER4,WORKER5 worker
+    class RDS,SQS database
+    class UPBIT,BITHUMB,BYBIT,BINANCE external
+    class EXMGR,AUTOTRADING core

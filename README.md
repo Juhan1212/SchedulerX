@@ -1,150 +1,404 @@
-# Kimchi_Premium_Strategy_Implementation
+# SchedulerX - 김치 프리미엄 자동매매 백엔드
 
-## 프로젝트 배경
+<div align="center">
 
-> 환율이란 화폐의 상대적 가치이다.
+![SchedulerX](https://img.shields.io/badge/SchedulerX-Trading_Backend-blue?style=for-the-badge)
 
-내가 두가지 화폐를 사고팔고 할 것이라면, 트레이딩뷰를 통해 아주 예쁘게 환율 그래프를 그릴 수 있다.
-상대적 가치이기 때문에 심지어 화폐를 가지고 할 필요도 없다. 삼성가격/애플가격 이런식으로 해도 상관없는 것이다.
+**알트코인 김치 프리미엄을 활용한 분산 자동매매 백엔드 시스템**
 
-**하지만, 삼성가격/애플가격과는 다르게 환율은 국가에서 화폐가치를 통제한다.**
-따라서, 빅맥지수도 실질 물가가 반영된 환율을 보여주지만, 환율을
-크게 벗어날 수는 없다. 즉, 서로 다른 국가에서 각자 팔고 있는 같은 물건가격의 상대적 가치는 거시적으로
-국제환율을 추종한다.
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Celery](https://img.shields.io/badge/Celery-5.3-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.2-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-하지만, 빅맥지수에서 보듯, 각자 국가의 사정이 다르기 때문에 정세, 물가 등에
-따라서 국제환율을 종종 이탈하는 경우가 발생한다. 코인도 마찬가지이다. 같은 비트코인이지만, 국가적
-정세, 국가의 디지털 전략, 군중심리 등에 따라서 특정국가에서 코인 가격이 상대적으로 비싸지는 현상이
-발생해 왔고, 김치프리미엄은 그 대표적인 현상이다.
+[특징](#-주요-기능) • [시작하기](#-시작하기) • [아키텍처](#-시스템-아키텍처) • [배포](#-배포-가이드) • [클라이언트](#-클라이언트-연동)
 
-아래 그림은 특정 알트코인의 "국내 거래소 가격 / 해외 거래소 가격"을 보여주는 차트이다.
-국제환율을 크게 벗어나는 구간이 종종 보인다. 아주 짧은 시간에 국내에서 고평가 되었다는 것이고, 이는
-해당 코인의 국내 가격의 폭발적 상승 혹은 해외 가격의 폭발적 하락을 의미한다.
+</div>
+
+---
+
+## 📖 프로젝트 개요
+
+**SchedulerX**는 한국과 해외 암호화폐 거래소 간의 가격 차이(김치 프리미엄)를 실시간으로 모니터링하고, 최적의 타이밍에 자동으로 포지션을 진입/종료하는 분산 백엔드 시스템입니다.
+
+### 💡 김치 프리미엄이란?
+
+> **환율은 화폐의 상대적 가치입니다.**
+
+국제환율과 마찬가지로, 같은 암호화폐라도 국가별 거래소에서 서로 다른 가격에 거래됩니다. 특히 한국 거래소에서는 프리미엄(김치 프리미엄)이 발생하는 경우가 많습니다.
+
 ![알트코인 환율 예시](./assets/img/altcoin_kimchi_premium.png)
 
-국내거래소는 해외거래소처럼 선물을 제공하지 않으므로, 매수밖에 되지 않고, 해외거래소는 선물을 제공하기 때문에
-매도가 가능하다. 따라서, 만약에 같은 코인을 국내거래소에서는 100개를 매수하고, 해외거래소에서는 매도를 한다면,
-우리는 사실상 0개를 산 것이지만, 만약에 국내거래소 가격 / 해외거래소 가격이 상승하게 되면, 이득을 보게 된다.
-이것이 바로 선물을 이용한 환차익 거래이다.
+- **국내 거래소**: 현물 매수만 가능
+- **해외 거래소**: 선물 매도 가능
+- **전략**: 국내에서 매수 + 해외에서 매도 = 환율 차익 포착
 
-따라서, 위 그림에서 보듯이, 낮은 구간에서 포지션을 진입하고, 높은 구간에서 포지션을 종료하는 전략을 자동으로
-하려고 하며, 해당 전략은 앞서도 말했듯이 거시적으로 환율을 추종하기 때문에 환율리스크를 전제한다. 실제로 2025년
-초에 비해 중반기까지 환율은 1500원에서 1350원까지 떨어졌으며 앉아서 10%나 손해를 보게 되기 때문에 알트코인을
-직접 매수하는 것보다는 로우 리스크이지만, 여전히 절대적으로 로우 리스크라고 할 수는 없다.
+이는 실제 코인을 보유하지 않으면서도(헤지), 환율 상승 시 수익을 얻을 수 있는 **환차익 거래 전략**입니다.
 
-하지만, 역사적으로 불장시기에 김치프리미엄은 폭등을 하였으며, 김치프리미엄이 100%에 이르는 역대급 김치코인들도
-많이 나왔지만, 단점은 세력, 시황에 따라서 이러한 차트에서 아웃라이어가 발생하므로, 언제 올지 예측이 힘들다는 점이다.
+### ⚠️ 리스크
 
-## 거래 전략
-**알트코인의 김치 프리미엄 갭을 활용한 자동매매 전략을 구현한다.**
-기본적으로 김치프리미엄 환율을 실시간으로 감시하여 환율이 낮을 때 들어가서 환율이 높을 때 종료하려고 한다.
-해당 전략에 드는 비용을 생각해보자. 
+- **환율 리스크**: USD/KRW 환율 변동에 영향을 받음 (2025년 초 1500원 → 중반 1350원)
+- **상대적 저위험**: 직접 코인 매수보다 리스크가 낮지만, 절대적 저위험은 아님
+- **타이밍**: 불장 시 김치 프리미엄 폭등 (최대 100%), 하지만 예측 어려움
 
-> #### 비용
+---
 
-- 국내거래소 -> 해외거래소 테더 전송비
-- 포지션 진입 수수료 (시장가)
-- 포지션 종료 수수료 (시장가)
-- 해외거래소 -> 국내거래소 테더 전송비
+## ✨ 주요 기능
 
-요즘, 온체인 테더 전송비는 거의 들지 않는 편이므로, 거래소 수수료만 생각해도 무방하고, 이론적으로는
-포지션 진입보다 종료시에 해당 코인의 환율이 0.15%보다 높아지면 이득이다. 또한, 환율 계산을 쉽게 하기
-위해 국내거래소, 해외거래소에서 같은 사이즈의 코인만 들어가는 것이 편리하다.
+### 🏦 거래소 통합
 
-**위 전략에서 가장 중요한 고려할 점은 거래시 슬리피지이다.**
-거래소는 순위권에 드는 거래소를 사용하는 것이 유리한데,
-그 이유는 유동성 때문이다. 사람들이 잘 안 사용하는 거래소는 유동성이 부족해서 호가창을 실제로 보게 되면
-코인 몇개만 사도 가격이 무너지게 되어 있다. 물론 시총이 큰 알트코인인 리플을 들어갈 수도 있겠지만,
-유동성이 부족한 알트에 비해서 흔들리는 폭이 적다. 따라서, 시총이 작은 코인이되, 호가창에서 내 시드로 진입할 때에 환율을 실시간으로 계산해서 들어갈 수 있는 그런 시스템이 필요하다.
+- **국내 거래소**: Upbit, Bithumb
+- **해외 거래소**: Bybit, Binance
+- 실시간 호가창 기반 환율 계산
+- API Rate Limit 관리 (Upbit: 30 req/s, Bybit: 120 req/s)
 
-**거래소에서 입출금이 막힌 코인은 거래하지 않는다.**
-입출금이 막히게 되면, 김치프리미엄이 엄청나게 되는데,
-유동성이 돌지를 못해서 가격이 서로 차이가 나게 되는 것으로, 이런 코인은 거래하지 않는다.
+### 📈 트레이딩 전략
 
-> #### 세부전략
+#### 비용 구조
+- 국내→해외 테더 전송비 (온체인, 거의 무시)
+- 포지션 진입 수수료 (시장가, ~0.075%)
+- 포지션 종료 수수료 (시장가, ~0.075%)
+- 해외→국내 테더 전송비
 
-국내거래소와 해외거래소의 공통 거래가능 코인들 전체에 대해 실시간으로 환율을 계산하고,
-테더가격(국제환율로 가정하자, 실제로 테더를 원화로 환전할 수 있으므로 이게 더 정확하다고 볼 수 있다.)과
-이를 비교하여 테더가격보다 떨어지는 코인에 대해 포지션을 진입하고, 포지션이 체결되면, 실시간 환율 감시를 통해 특정 조건을 만족하면 자동으로 포지션을 종료한다.
+> **손익분기점**: 환율 상승 0.15% 이상
 
+#### 핵심 전략
+1. **슬리피지 최소화**: 호가창 실시간 분석으로 정확한 환율 계산
+2. **유동성 확보**: 주요 거래소만 사용, 입출금 가능 코인만 거래
+3. **실시간 모니터링**: 30초 간격으로 131개 공통 티커 환율 계산
+4. **자동 진입/종료**: 
+   - 진입: 환율이 테더 가격 대비 낮을 때
+   - 종료: 사용자 지정 목표 환율 도달 시
 
-## 설치 및 실행 가이드 (AWS EC2)
+### 🔄 분산 아키텍처
 
-### 1. EC2 인스턴스 생성 시 User Data 입력
+- **스케줄러 인스턴스**: 태스크 발행 및 데이터 집계
+- **워커 인스턴스 x5**: 병렬 환율 계산 (IP 분산으로 Rate Limit 우회)
+- **메시지 큐**: RabbitMQ 기반 태스크 분배
+- **실시간 통신**: Redis Pub/Sub (gzip 압축 적용)
 
-EC2 인스턴스 생성 시, **User Data**에 아래 스크립트 내용을 입력하세요. (이 스크립트는 초기 환경 세팅 및 필수 패키지 설치, 코드 다운로드 등을 자동화합니다)
+---
 
-```bash
-# aws_user_data.sh 파일의 전체 내용을 복사하여 User Data에 입력
+## 🛠️ 기술 스택
+
+### Backend Core
+
+```
+Python 3.11 + FastAPI
+├── FastAPI              # REST API 서버
+├── Celery               # 분산 태스크 큐
+├── RabbitMQ             # 메시지 브로커
+├── APScheduler          # 주기적 스케줄링
+├── Redis                # Pub/Sub + 캐싱
+└── uv                   # 패키지 관리
 ```
 
-> 실제 스크립트 내용은 `aws_user_data.sh` 파일을 참고하세요.
+### Database
 
-### 2. 인스턴스 타입별 배포 스크립트 실행
+```
+PostgreSQL (RDS)
+├── Users & Auth         # 사용자 인증/관리
+├── Exchanges            # 거래소 정보
+├── Strategies           # 자동매매 전략
+├── Positions            # 활성 포지션
+└── Trading History      # 거래 내역
+```
 
-인스턴스의 역할에 따라 아래 스크립트를 실행하세요:
+### Exchange APIs
 
-- **스케줄러 인스턴스**: 
-  ```bash
-  ./deploy-scheduler.sh
-  ```
-- **컨슈머(워커) 인스턴스**:
-  ```bash
-  ./deploy-celery-worker.sh
-  ```
+```
+Exchange Integration
+├── Upbit               # 한국 거래소 #1
+├── Bithumb             # 한국 거래소 #2
+├── Bybit               # 해외 거래소 #1
+└── Binance             # 해외 거래소 #2
+```
 
-각 스크립트는 필요한 서비스(스케줄러/워커)를 자동으로 실행합니다.
+---
 
-### 3. 클라이언트 웹서비스 연동
+## 🏗️ 시스템 아키텍처
 
-본 프로젝트의 데이터는 아래 클라이언트 웹서비스와 연동되어 실시간으로 활용됩니다:
+![인프라 구성도](./assets/img/architecture.png)
 
-- [karbit 프론트엔드 웹서비스 (GitHub)](https://github.com/Juhan1212/karbit.git)
+### 주요 컴포넌트
 
-> 반드시 백엔드와 클라이언트가 연동되어야 실시간 환율/프리미엄 데이터가 정상적으로 표시됩니다.
+#### 스케줄러 인스턴스 (EC2 t3.micro)
+- **APScheduler**: 5분마다 공통 티커 갱신
+- **Celery Producer**: 30초마다 RabbitMQ에 태스크 발행
+- **Redis Server**: 클라이언트 실시간 데이터 전송
+- **RabbitMQ**: 메시지 브로커
+- **FastAPI**: REST API 서버 (클라이언트 앱과 동일 서버)
 
-### 4. 시스템 환경 및 제약조건
+#### 워커 인스턴스 (EC2 t2.micro x5)
+- **Celery Consumer**: RabbitMQ에서 태스크 수신
+- **환율 계산 엔진**: 호가창 기반 실시간 환율 계산
+- **자동매매 엔진**: 조건 만족 시 포지션 진입/종료
+- **IP 분산**: 거래소 Rate Limit 우회
 
-설계는 확장성을 고려하되, 시간이 없기 때문에 빠른 구현을 목적을 한다. 
+### 데이터 흐름
 
-> 전제조건
+1. **스케줄러** → 공통 티커 DB 갱신 (5분)
+2. **스케줄러** → RabbitMQ에 태스크 발행 (30초)
+3. **워커들** → RabbitMQ에서 태스크 폴링
+4. **워커들** → 거래소 API 호출, 환율 계산
+5. **워커들** → Redis에 gzip 압축 데이터 발행
+6. **클라이언트** → Redis SSE로 실시간 수신
+7. **자동매매** → 조건 만족 시 포지션 자동 실행
 
-- 한국거래소 : Upbit, Bithumb
-- 해외거래소 : Bybit, Binance
-- 메인 사용언어 : python
-- 프레임워크 : fastapi, celery
-- DB : redis, postgresql(RDS)
-- 패키지 관리 툴 : uv
+---
 
-> 인프라 & 요구사항
+## 🚀 시작하기
 
-- 메인(스케줄러) 인스턴스 : AWS ec2 인스턴스
-  - 데몬 스케줄러
-    - 매 5분마다 "공통 진입가능 티커" 목록을 갱신하는 스케줄러
-      - 업비트 티커에 대해 입출금 가능여부 확인하고, 입출금 불가한 티커는 거른다.
-      - 위 필터링을 거친 거래가능 공통티커에 대해 db upsert
-    - 매 30초마다 celery를 통해 AWS SQS큐에 "공통 진입가능 티커"들을 큐에 삽입하는 스케줄러 수행
-      - AWS 비용문제 때문에 더 인터벌을 줄일 수 없고, 가장 최적화로 진행한 게 30초 인터벌이다. 
-      - 현재 전체 공통 티커들과 인스턴스들 예산내 모든 공통 티커를 처리하는 데 소요되는 시간이 30초이기 때문
-    - 실제 어플리케이션 앱과 같은 서버에 위치 시킨다.
-      - 비용절감 목적이 90%
-      - 네트워크 지연 최소화 10%
-      - 장애 전파 위험 및 확장성, 배포의 단점이 있으나 서비스 확대 전까지는 최적화로 t3 micro인스턴스로 실행
+### 사전 요구사항
 
-- 워커 인스턴스 : AWS ec2 인스턴스
-  - 비용절감 목적으로 ec2 free tier 확보한 여러 계정으로 t2 micro인스턴스로 실행
-  - AWS SQS큐에서 poll하여 호가창 반영 환율 계산 task 수행
-  - 메인 인스턴스에 redis를 설치하여 클라이언트에 실시간 김치 프리미엄 데이터 전파
-  - postgresql RDS 확인하고, 자동매매 고객의 경우 포지션 자동 진입/종료
+- **Python** >= 3.11
+- **PostgreSQL** >= 16
+- **Redis** >= 7.2
+- **RabbitMQ** >= 3.12
+- **AWS Account** (EC2, RDS)
+- **uv** (패키지 관리자)
 
-> 제약조건
+### 로컬 개발 환경 설정
 
-- 업비트는 초당 30회 요청 가능
-- 업비트는 시세관련 api요청 헤더에 Origin이 있을 시 요청량 10초당 1회 가능
-- 빗썸은 아직 베타버전에서도 웹소켓 오더북api가 제공되지 않음
-- 바이비트는 초당 120회 요청 가능
-- 호가창 api는 티커 파라미터 1개만 가능하므로, 131개에 대해 실시간으로 호가창이 반영된 환율을 계산하려면, 최소 서로 다른 ip를 가진 인스턴스 5개를 돌려야한다.
-- 워커 인스턴스를 AWS Lambda로 서버리스로 스크립트만으로 task수행을 하고 싶었으나, 거래소 ip 제한 때문에 불가
+1. **저장소 클론**
 
-> Infrastructure Diagram (made by mermaid)
-> ![인프라 구성도](./assets/img/architecture.png)
+   ```bash
+   git clone https://github.com/Juhan1212/SchedulerX.git
+   cd SchedulerX
+   ```
+
+2. **의존성 설치**
+
+   ```bash
+   # uv 설치 (없는 경우)
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # 패키지 설치
+   uv sync
+   ```
+
+3. **환경 변수 설정**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   `.env` 파일 편집:
+
+   ```env
+   # Database
+   DATABASE_URL=postgresql://user:password@localhost:5432/schedulerx
+   
+   # Redis
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   
+   # RabbitMQ
+   RABBITMQ_URL=amqp://guest:guest@localhost:5672//
+   
+   # Exchange API Keys
+   UPBIT_ACCESS_KEY=your_upbit_access_key
+   UPBIT_SECRET_KEY=your_upbit_secret_key
+   BYBIT_API_KEY=your_bybit_api_key
+   BYBIT_SECRET_KEY=your_bybit_secret_key
+   # ... 기타 거래소 API 키
+   ```
+
+4. **데이터베이스 마이그레이션**
+
+   ```bash
+   # RDS 설정 가이드 참조
+   cat RDS_SETUP_GUIDE.md
+   
+   # 마이그레이션 실행
+   ./migrations/migrate.sh
+   ```
+
+5. **로컬 서비스 실행**
+
+   ```bash
+   # Redis 실행 (Docker)
+   docker run -d -p 6379:6379 redis:7.2-alpine
+   
+   # RabbitMQ 실행 (Docker)
+   docker run -d -p 5672:5672 -p 15672:15672 rabbitmq:3.12-management
+   
+   # Celery Worker 실행
+   celery -A consumer worker --loglevel=info
+   
+   # Scheduler 실행
+   python scheduler.py
+   
+   # FastAPI 서버 실행 (선택사항)
+   uvicorn main:app --reload
+   ```
+
+---
+
+## 📋 배포 가이드
+
+### AWS EC2 배포
+
+#### 1. EC2 인스턴스 생성 시 User Data 입력
+
+EC2 생성 시 **User Data** 섹션에 `aws_user_data.sh` 파일 내용을 입력하세요.
+
+```bash
+# aws_user_data.sh 내용 확인
+cat aws_user_data.sh
+```
+
+이 스크립트는 다음을 자동으로 실행합니다:
+- Python, Redis, RabbitMQ 설치
+- uv 패키지 관리자 설치
+- 프로젝트 클론 및 의존성 설치
+- 환경 변수 설정
+
+#### 2. 인스턴스 타입별 배포
+
+**스케줄러 인스턴스 (EC2 t3.micro)**
+
+```bash
+ssh ec2-user@scheduler-instance-ip
+cd SchedulerX
+./deploy-scheduler.sh
+```
+
+이 스크립트는 다음을 실행합니다:
+- FastAPI 서버 시작
+- APScheduler 데몬 실행
+- Celery Producer 실행
+- Redis 서버 시작
+- RabbitMQ 서버 시작
+
+**워커 인스턴스 (EC2 t2.micro x5)**
+
+```bash
+ssh ec2-user@worker-instance-ip
+cd SchedulerX
+./deploy-celery-worker.sh
+```
+
+이 스크립트는 Celery Worker를 데몬으로 실행합니다.
+
+#### 3. 서비스 상태 확인
+
+```bash
+# 스케줄러 인스턴스
+systemctl status scheduler
+systemctl status celery-producer
+systemctl status redis
+systemctl status rabbitmq
+
+# 워커 인스턴스
+systemctl status celery-worker
+```
+
+### 인프라 최적화 전략
+
+> **비용 절감 우선 (90%) + 네트워크 지연 최소화 (10%)**
+
+- **스케줄러**: FastAPI와 동일 서버 (t3.micro)
+  - 장점: 비용 절감, 네트워크 레이턴시 최소화
+  - 단점: 장애 전파 위험, 확장성 제한
+  - 결정: 서비스 확대 전까지 최적화 우선
+
+- **워커**: 여러 AWS 계정의 Free Tier 활용 (t2.micro x5)
+  - IP 분산으로 거래소 Rate Limit 우회
+  - 호가창 API는 티커당 1개씩만 호출 가능
+  - 131개 티커 처리 위해 최소 5개 인스턴스 필요
+
+---
+
+## 🔗 클라이언트 연동
+
+### Karbit 프론트엔드
+
+본 프로젝트는 [**Karbit**](https://github.com/Juhan1212/karbit) 웹 애플리케이션의 백엔드입니다.
+
+- **프레임워크**: React Router v7 + TypeScript
+- **실시간 통신**: Redis SSE (Server-Sent Events)
+- **데이터 압축**: gzip + base64 (Data Transfer 비용 절감)
+
+### 데이터 압축 처리
+
+**서버 측 (consumer.py)**
+
+```python
+import gzip
+import base64
+import json
+
+# Redis에 압축된 데이터 발행
+raw_json = json.dumps({"results": res})
+compressed = gzip.compress(raw_json.encode('utf-8'))
+encoded = base64.b64encode(compressed).decode('utf-8')
+redis_client.publish('exchange_rate', encoded)
+```
+
+**클라이언트 측 (TypeScript)**
+
+```typescript
+import zlib from "zlib";
+
+function decodeGzipBase64Message(msg: string) {
+  const binary = Buffer.from(msg, "base64");
+  const jsonStr = zlib.gunzipSync(binary).toString("utf-8");
+  return JSON.parse(jsonStr);
+}
+```
+
+> **반드시 백엔드와 클라이언트가 연동되어야** 실시간 환율/프리미엄 데이터가 정상적으로 표시됩니다.
+
+---
+
+## 📊 제약 조건 및 해결 방안
+
+### API Rate Limits
+
+| 거래소 | 제한                          | 해결 방안                    |
+| ------ | ----------------------------- | ---------------------------- |
+| Upbit  | 30 req/s                      | 워커 분산                    |
+| Upbit  | Origin 헤더 시 10초당 1회     | Origin 헤더 제거             |
+| Bybit  | 120 req/s                     | 워커 분산                    |
+| Bithumb| WebSocket 오더북 미제공       | REST API 폴링                |
+
+### 인프라 제약
+
+- **Lambda 불가**: 거래소 IP 제한으로 서버리스 불가능
+- **최소 5개 인스턴스**: 호가창 API 1개 티커당 1회 호출 제한
+- **30초 간격**: AWS 비용 최적화 (SQS/RabbitMQ 호출 비용)
+
+---
+
+## 🔒 보안
+
+### 구현된 보안 기능
+
+- ✅ **API 키 암호화**: 거래소 API 키 DB 암호화 저장
+- ✅ **환경 변수 관리**: 민감 정보 .env 분리
+- ✅ **SQL 인젝션 방지**: ORM 사용
+- ✅ **Rate Limiting**: 거래소 API 호출 제한 준수
+
+---
+
+## 📝 라이선스
+
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](./LICENSE) 파일을 참조하세요.
+
+---
+
+## 📞 지원 및 문의
+
+- **이슈 리포트**: [GitHub Issues](https://github.com/Juhan1212/SchedulerX/issues)
+- **클라이언트 프로젝트**: [Karbit Frontend](https://github.com/Juhan1212/karbit)
+
+<div align="center">
+
+**Built for Karbit Trading Platform**
+
+[⬆ 맨 위로](#schedulerx---김치-프리미엄-자동매매-백엔드)
+
+</div>

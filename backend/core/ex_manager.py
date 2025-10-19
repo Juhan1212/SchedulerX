@@ -208,9 +208,13 @@ class ExchangeManager:
                     total_fr_fee += float(fr_fee)
 
                 avg_entry_rate = weighted_entry_sum / total_kr_volume if total_kr_volume > 0 else 0
+                avg_kr_price = total_kr_funds / total_kr_volume if total_kr_volume > 0 else 0
+                avg_fr_price = total_fr_funds / total_kr_volume if total_kr_volume > 0 else 0
 
                 return {
                     "avg_entry_rate": avg_entry_rate,
+                    "avg_kr_price": avg_kr_price,
+                    "avg_fr_price": avg_fr_price,
                     "total_kr_volume": total_kr_volume,
                     "total_kr_funds": total_kr_funds,
                     "total_fr_funds": total_fr_funds,
@@ -240,7 +244,8 @@ class ExchangeManager:
                 'fr_funds', 
                 'fr_fee', 
                 'profit', 
-                'profit_rate'
+                'profit_rate',
+                'slippage'
             ]
             field_scales = {
                 'entry_rate': 2,
@@ -254,7 +259,8 @@ class ExchangeManager:
                 'fr_funds': 8,
                 'fr_fee': 8,
                 'profit': 2,
-                'profit_rate': 2
+                'profit_rate': 2,
+                'slippage': 4
             }
             for key in numeric_fields:
                 if key in kwargs:

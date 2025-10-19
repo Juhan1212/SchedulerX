@@ -71,8 +71,8 @@ async def test_get_orderbook_success(bybit_service):
     # ))
 
     # get_orderbook 호출
-    orderbook = await bybit_service.get_orderbook("BTC")
-    print(orderbook)
+    orderbook = await bybit_service.get_ticker_orderbook("BTC")
+    print(len(orderbook.get("orderbook")))
     
     # 결과 검증
     # assert orderbook == mock_orderbook_response["result"]["orderBook"]
@@ -145,7 +145,7 @@ async def test_get_lot_size(bybit_service):
     # ))
 
     # get_lot_size 호출
-    lot_size = await bybit_service.get_lot_size("ETH")
+    lot_size = await bybit_service.get_lot_size("PUMPBTC")
     
     print(lot_size)
     

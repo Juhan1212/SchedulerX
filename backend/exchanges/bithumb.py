@@ -23,8 +23,8 @@ class BithumbExchange(KoreanExchange):
     """
     name = "bithumb"
     server_url = "https://api.bithumb.com"
-    
-    def __init__(self, api_key: str, secret_key: str):
+
+    def __init__(self, api_key: str = "", secret_key: str = ""):
         self.api_key = api_key
         self.secret_key = secret_key
         

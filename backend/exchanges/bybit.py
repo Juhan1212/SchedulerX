@@ -685,3 +685,89 @@ class BybitExchange(ForeignExchange):
         except Exception as e:
             logger.error(f"Unexpected error while placing order for {ticker}: {e}")
             raise
+        
+    async def get_position_closed_pnl(
+        self,
+        ticker: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        limit: int = 1,
+        cursor: str | None = None,
+    ) -> dict:
+        """
+        Bybit에서 특정 티커의 청산 손익(Closed PnL) 내역을 조회합니다.
+
+        Args:
+            ticker (str): 티커 이름 (예: "BTC")
+            start_time (int | None): 조회 시작 시간. 초 단위 또는 밀리초 단위 타임스탬프.
+            end_time (int | None): 조회 종료 시간. 초 단위 또는 밀리초 단위 타임스탬프.
+            limit (int): 한 번에 조회할 레코드 수 (기본 1)
+            cursor (str | None): 페이지네이션 커서
+
+        Returns:
+            dict: Bybit API의 result 객체 (list, nextPageCursor 등 포함)
+
+        Raises:
+            Exception: API 호출 실패 시 발생하는 예외
+        """
+        try:
+            def to_ms(ts: int) -> int:
+                # 초 단위로 들어오면 ms로 변환 (1e12 미만을 초로 간주)
+                if ts is None:
+                    return ts
+                return ts * 1000 if ts < 10**12 else ts
+
+            st_ms = to_ms(start_time) if start_time is not None else None
+            et_ms = to_ms(end_time) if end_time is not None else None
+
+            # 쿼리 문자열은 서명과 동일한 순서를 유지해야 함
+            params = [
+                ("category", "linear"),
+                ("symbol", f"{ticker}USDT"),
+            ]
+            if st_ms is not None:
+                params.append(("startTime", str(st_ms)))
+            if et_ms is not None:
+                params.append(("endTime", str(et_ms)))
+            if limit is not None:
+                params.append(("limit", str(limit)))
+            if cursor:
+                params.append(("cursor", cursor))
+
+            query_string = "&".join([f"{k}={v}" for k, v in params])
+            url = f"{self.server_url}/v5/position/closed-pnl?{query_string}"
+
+            recv_window = "5000"
+            timestamp = str(int(time.time() * 1000))
+            headers = {"Accept": "application/json"}
+
+            # GET은 쿼리스트링 포함하여 서명
+            sign_payload = timestamp + self.api_key + recv_window + query_string
+            signature = hmac.new(
+                self.secret_key.encode("utf-8"),
+                sign_payload.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+
+            headers["X-BAPI-SIGN"] = signature
+            headers["X-BAPI-API-KEY"] = self.api_key
+            headers["X-BAPI-TIMESTAMP"] = timestamp
+            headers["X-BAPI-RECV-WINDOW"] = recv_window
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as res:
+                    if res.status != 200:
+                        raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
+
+                    response = await res.json()
+                    if response.get("retCode") == 0:
+                        return response.get("result", {})
+                    raise Exception(f"Bybit API Error: {response.get('retMsg')}")
+        except aiohttp.ClientError as e:
+            logger.error("Network error while fetching closed PnL for %s: %s", ticker, e)
+            raise
+        except Exception as e:
+            logger.error("Unexpected error while fetching closed PnL for %s: %s", ticker, e)
+            raise
+        
+    

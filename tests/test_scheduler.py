@@ -14,9 +14,9 @@ load_dotenv()
 
 def test_renew_tickers():
     scheduler.exMgr = exMgr
-    exMgr.register_exchange("upbit", UpbitExchange.from_env())
-    exMgr.register_exchange("bybit", BybitExchange.from_env())
-    exMgr.register_exchange("bithumb", BithumbExchange.from_env())
+    exMgr.register_exchange("upbit", UpbitExchange())
+    exMgr.register_exchange("bybit", BybitExchange())
+    exMgr.register_exchange("bithumb", BithumbExchange())
     scheduler.renew_tickers_job(exMgr)
 
 @pytest.mark.asyncio

@@ -28,8 +28,9 @@ async def test_get_tickers_success(upbit_service):
     # ))
 
     # get_tickers 호출
-    tickers = await upbit_service.get_tickers()
-    print(tickers)
+    tickers = await upbit_service.get_ticker_orderbook(['BTC'])
+    print(json.dumps(tickers, indent=2))
+    print(len(tickers[0].get("orderbook")))
 
     # 결과 검증
     # assert tickers == ["BTC", "ETH"]

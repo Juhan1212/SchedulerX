@@ -10,14 +10,13 @@ load_dotenv()
 
 # Telegram 봇 설정
 bot_id = os.getenv('TELEGRAM_BOT_TOKEN')
-chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-if not bot_id or not chat_id:
-    raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.")
+if not bot_id:
+    raise ValueError("TELEGRAM_BOT_TOKEN must be set in environment variables.")
 
 bot = Bot(token=bot_id)
 
-async def send_telegram(message, message_type='text', parse_mode='Markdown'):
+async def send_telegram(chat_id, message, message_type='text', parse_mode='Markdown'):
     if not bot_id or not chat_id:
         raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.")
     
@@ -80,5 +79,5 @@ if __name__ == "__main__":
 ═══════════════════════
     '''
     
-    asyncio.run(send_telegram(test_message))
-    asyncio.run(bot.session.close())
+    # asyncio.run(send_telegram(test_message))
+    # asyncio.run(bot.session.close())

@@ -111,6 +111,9 @@ class ExchangeManager:
                     u.email, 
                     u.total_entry_count,
                     u.total_order_amount,
+                    u.telegram_chat_id, 
+                    u.telegram_username,
+                    u.telegram_notifications_enabled,
                     s.name AS strategy_name, 
                     s.is_active, 
                     s.seed_amount,
@@ -121,8 +124,6 @@ class ExchangeManager:
                     s.seed_division,
                     s.allow_average_down, 
                     s.allow_average_up, 
-                    s.webhook_enabled, 
-                    s.telegram_enabled, 
                     s.ai_mode,
                     s.leverage,
                     s.entry_count

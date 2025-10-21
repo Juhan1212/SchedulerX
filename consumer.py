@@ -153,6 +153,9 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         total_order_amount = user['total_order_amount']
         allow_average_down = user.get('allow_average_down', False)
         allow_average_up = user.get('allow_average_up', False)
+        telegram_chat_id = user.get('telegram_chat_id', None)
+        telegram_username = user.get('telegram_username', None)
+        telegram_notifications_enabled = user.get('telegram_notifications_enabled', False)
         entry_position_flag = False 
         exit_position_flag = False
 
@@ -167,14 +170,14 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         # 일치하는 시드머니에 대한 환율 정보가 없으면 다음 사용자로 넘어갑니다. ~ 범위 탐색으로 변경했기 때문에 없다면 말이 안됨.
         if not ex_rate_info:
             logger.error(f"No matching ex_rate found for user {user['email']} with entry_seed {entry_seed} in item {item['name']}. Skipping.")
-            return message
+            return
         
         current_ex_rate = ex_rate_info['ex_rate']
 
         # 방어로직 - 호가창 모두 소진되어도 주문금액이 남는 경우 제대로된 환율 계산 불가
         if current_ex_rate is None:
             logger.error(f"환율 계산에 실패했습니다. 호가창이 모두 소진되었을 수 있습니다. user: {user['email']}, ticker: {item['name']}, entry_seed: {entry_seed}")
-            return message
+            return
 
         # 검증 1. 파라미터의 코인과 동일한 코인을 선택했는지 확인 ~ 자동모드이면 검증 안함
         if coin_mode == 'custom':
@@ -222,24 +225,28 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                 Karbit 주문내역 존재 : o
                                 실제 거래소 포지션 : x
                             ''')
-        #                             message += f'''
-        # ⚠️ 포지션 불일치
-        # ┌─────────────────────
-        # │ 👤 유저 : {user['id']}
-        # │ 🌍 거래소 : {foreign_ex}
-        # │ 🪙 티커 : {item['name']}
-        # │ 📋 Karbit 주문내역 : ✓
-        # │ 🔍 실제 거래소 포지션 : ✗
-        # └─────────────────────
-        #                                         '''
-                return message
+        
+        
+                if telegram_notifications_enabled and telegram_chat_id:
+                    telegram_message = f'''
+                    ⚠️ 포지션 불일치
+                    ┌─────────────────────
+                    │ 👤 유저 : {telegram_username}
+                    │ 🌍 거래소 : {foreign_ex}
+                    │ 🪙 티커 : {item['name']}
+                    │ 📋 Karbit 자동매매 포지션 종료 실패
+                    │ 🔍 사유 : 실제 거래소에 현재 포지션이 존재 x
+                    └─────────────────────
+                    '''
+                    await send_telegram(telegram_chat_id, telegram_message)
+                return
             
             # 검증 및 정산을 위해 포지션 정보 조회
             positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
             
             if not positionDB:
                 logger.error(f"포지션 정보 조회 실패 - user_id: {user['email']}, ticker: {item['name']}")
-                return message
+                return
 
             # 포지션 종료
             exit_results = await exMgr.exit_position(korean_ex_cls, foreign_ex_cls, item['name'], positionDB['total_kr_volume'])
@@ -322,21 +329,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                             profit : {profit}
                             profitRate : {profit_rate}
                         ''')
-            message += f'''
-        ═══════════════════════
-        📈 포지션 종료 완료
-        ═══════════════════════
-        👤 유저 : {user['email']}
-        🪙 티커 : {item['name']}
-        📊 진입환율(피라미딩): {avg_entry_rate}
-        📊 종료환율 : {exit_rate}
-        💰 테더 가격 : {usdt_price}
-        💰 수수료 : {total_fee}₩
-        📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
-        💵 수익 : {round(profit,2)}
-        📈 수익률 : {round(profit_rate,2)}%
-        ═══════════════════════
-            '''
             exMgr.update_strategies(user['id'], entry_count=entry_count-1)
             # 누적주문횟수, 누적주문금액 갱신
             exMgr.update_users(user['id'], total_entry_count=total_entry_count+1, total_order_amount=total_order_amount+int(total_kr_funds))
@@ -368,20 +360,38 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'fr_slippage': float(fr_slippage)
             }
             exMgr.insert_positions(user['id'], **position_data)
+            message += f'''
+            ═══════════════════════
+            📈 포지션 종료 완료
+            ═══════════════════════
+            👤 유저 : {telegram_username}
+            🪙 티커 : {item['name']}
+            📊 진입환율(피라미딩): {avg_entry_rate}
+            📊 종료환율 : {exit_rate}
+            💰 테더 가격 : {usdt_price}
+            💰 수수료 : {total_fee}₩
+            📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
+            💵 수익 : {round(profit,2)}₩
+            📈 수익률 : {round(profit_rate,2)}%
+            ═══════════════════════
+            '''
+            if telegram_notifications_enabled and telegram_chat_id:
+                await send_telegram(telegram_chat_id, message)
+            return
 
         # 포지션 진입
         elif entry_position_flag: 
             message = f'''
-        ═══════════════════════
-        🎯 포지션 진입 기회 포착
-        ═══════════════════════
-        🇰🇷 한국거래소 : {korean_ex}
-        🌍 해외거래소 : {foreign_ex}
-        🪙 티커 : {item['name']}
-        📊 포착환율 : {round(current_ex_rate,2)}
-        💰 테더가격 : {usdt_price}
-        ═══════════════════════
-        '''
+            ═══════════════════════
+            🎯 포지션 진입 기회 포착
+            ═══════════════════════
+            🇰🇷 한국거래소 : {korean_ex}
+            🌍 해외거래소 : {foreign_ex}
+            🪙 티커 : {item['name']}
+            📊 포착환율 : {round(current_ex_rate,2)}
+            💰 테더가격 : {usdt_price}
+            ═══════════════════════
+            '''
 
             # 포지션 진입전 검증
             # 검증 0. 포지션 누적진입 횟수와 시드 분할 횟수 비교
@@ -400,15 +410,17 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                 사유 : 잔액부족
                                 주문가능잔액 : {kr_balance}''')
                 message += f'''
-        ❌ 포지션 진입 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🌍 거래소 : {korean_ex}
-        │ ❗ 사유 : 잔액부족
-        │ 💰 주문가능잔액 : {kr_balance}₩
-        └─────────────────────
-        '''
-                return message
+                ❌ 포지션 진입 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 거래소 : {korean_ex}
+                │ ❗ 사유 : 잔액부족
+                │ 💰 주문가능잔액 : {kr_balance}₩
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
             
             # 검증 2. 외국거래소 잔액과 진입시드 비교 ~ 설정시드는 원화기준금액이므로 테더로 환산한다.
             if fr_balance < round(entry_seed / usdt_price, 2):
@@ -419,15 +431,17 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                 사유 : 잔액부족
                                 주문가능잔액 : {fr_balance}''')
                 message += f'''
-        ❌ 포지션 진입 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🌍 해외거래소 : {foreign_ex}
-        │ ❗ 사유 : 잔액부족
-        │ 💰 주문가능잔액 : {fr_balance}$
-        └─────────────────────
-        '''
-                return message
+                ❌ 포지션 진입 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 해외거래소 : {foreign_ex}
+                │ ❗ 사유 : 잔액부족
+                │ 💰 주문가능잔액 : {fr_balance}$
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
 
             # 검증 3. 누적 포지션 진입 횟수 확인
             if seed_division <= entry_count:
@@ -439,16 +453,18 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                 포지션 진입 가능 횟수 : {seed_division}
                                 현재값 : {entry_count}''')
                 message += f'''
-        ❌ 포지션 진입 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🌍 해외거래소 : {foreign_ex}
-        │ ❗ 사유 : 누적 포지션 진입 횟수 초과
-        │ 🔢 진입 가능 횟수 : {seed_division}
-        │ 📊 현재 진입 횟수 : {entry_count}
-        └─────────────────────
-        '''
-                return message
+                ❌ 포지션 진입 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 해외거래소 : {foreign_ex}
+                │ ❗ 사유 : 누적 포지션 진입 횟수 초과
+                │ 🔢 진입 가능 횟수 : {seed_division}
+                │ 📊 현재 진입 횟수 : {entry_count}
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
             
             # 검증 4. 이미 진입한 포지션이라면, 물타기 허용여부에 따라 더 낮은 환율에서만 진입 허용
             existing_positions = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
@@ -479,11 +495,16 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                     한국거래소 : {korean_ex}
                                     주문 실패''')
                 message += f'''
-                                유저 : {user['email']}
-                                한국거래소 : {korean_ex}
-                                주문 실패
-        '''
-                return message
+                ❌ 포지션 진입 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 한국거래소 : {korean_ex}
+                │ ❗ 사유 : 한국거래소 주문 실패
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
             
             # 주문 체결 대기
             await asyncio.sleep(0.2)
@@ -540,27 +561,31 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             if not kr_order_volume or not kr_order_funds:
                 logger.error(f"한국거래소 주문 결과에서 volume을 찾을 수 없습니다: {kr_order_result} (유저 {user['email']})")
                 message += f'''
-        ❌ 주문 처리 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🇰🇷 한국거래소 주문 결과에서 volume을 찾을 수 없습니다
-        │ 📊 결과 : {kr_order_result}
-        └─────────────────────
-        '''
-                return message
+                ❌ 주문 처리 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🇰🇷 한국거래소 주문 결과에서 volume을 찾을 수 없습니다
+                │ 📊 결과 : {kr_order_result}
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
             
             # 해외거래소 주문최소가능단위 조회
             lot_size = await foreign_ex_cls.get_lot_size(item['name'])
             if lot_size is None:
                 logger.error(f"해외거래소 주문 최소 가능 단위 조회 실패 (유저 {user['email']})")
                 message += f'''
-        ❌ 거래소 설정 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🌍 해외거래소 주문 최소 가능 단위 조회 실패
-        └─────────────────────
-        '''
-                return message
+                ❌ 거래소 설정 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 해외거래소 주문 최소 가능 단위 조회 실패
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
 
             rounded_volume = round_volume_to_lot_size(kr_order_volume, lot_size)
 
@@ -569,28 +594,32 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             if rounded_volume <= 0:
                 logger.error(f"해외거래소 주문 가능한 최소 수량 미만: {kr_order_volume} -> {rounded_volume} (유저 {user['email']})")
                 message += f'''
-        ❌ 주문 수량 부족
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 📊 원래 수량 : {kr_order_volume}
-        │ 📊 조정된 수량 : {rounded_volume}
-        │ ❗ 해외거래소 주문 가능한 최소 수량 미만
-        └─────────────────────
-        '''
-                return message
-            
+                ❌ 주문 수량 부족
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 📊 원래 수량 : {kr_order_volume}
+                │ 📊 조정된 수량 : {rounded_volume}
+                │ ❗ 해외거래소 주문 가능한 최소 수량 미만
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
+
             # 해외거래소 레버리지 설정
             fr_leverage = await foreign_ex_cls.set_leverage(item['name'], str(leverage))
             if fr_leverage.get('retMsg') != 'OK' and fr_leverage.get('retMsg') != 'leverage not modified':
                 logger.error(f"해외거래소 레버리지 설정 실패: {fr_leverage} (유저 {user['email']})")
                 message += f'''
-        ❌ 레버리지 설정 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ ⚡ 설정 결과 : {fr_leverage}
-        └─────────────────────
-        '''
-                return message
+                ❌ 레버리지 설정 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ ⚡ 설정 결과 : {fr_leverage}
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
 
             # 해외거래소 주문 실행
             fr_order = await foreign_ex_cls.order(item['name'], 'ask', rounded_volume)
@@ -608,14 +637,16 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             if not fr_order_id:
                 logger.error(f"해외거래소 주문 실행 실패: (유저 {user['email']})")
                 message += f'''
-        ❌ 해외거래소 주문 실행 실패
-        ┌─────────────────────
-        │ 👤 유저 : {user['email']}
-        │ 🌍 거래소 : {foreign_ex}
-        │ ❗ 주문 ID 생성 실패
-        └─────────────────────
-        '''
-                return message
+                ❌ 해외거래소 주문 실행 실패
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🌍 거래소 : {foreign_ex}
+                │ ❗ 주문 ID 생성 실패
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
             
             await asyncio.sleep(0.2)
             
@@ -693,24 +724,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                             주문 체결금액 : {fr_order_funds}$
                             레버리지 : {leverage}
                             ''')
-            message += f'''
-        ═══════════════════════
-        ✅ 포지션 진입 성공
-        ═══════════════════════
-        👤 유저 : {user['email']}
-        🇰🇷 한국거래소 : {korean_ex}
-        📊 한국 체결량 : {kr_order_volume}
-        💰 한국 체결금액 : {kr_order_funds}₩
-        🌍 해외거래소 : {foreign_ex}
-        📊 해외 체결량 : {fr_order_volume}
-        📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
-        💰 주문 체결금액 : {fr_order_funds}$
-        ⚡ 레버리지 : {leverage}x
-        ═══════════════════════
-        📊 주문환율 : {order_rate}
-        💰 테더가격 : {usdt_price}
-        ═══════════════════════
-            '''
                             
             exMgr.update_strategies(user['id'], entry_count=entry_count+1)
             # 누적주문횟수, 누적주문금액 갱신
@@ -739,7 +752,28 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'usdt_price': float(usdt_price)
             }
             exMgr.insert_positions(user['id'], **position_data)
-        return message
+            message += f'''
+            ═══════════════════════
+            ✅ 포지션 진입 성공
+            ═══════════════════════
+            👤 유저 : {telegram_username}
+            🇰🇷 한국거래소 : {korean_ex}
+            📊 한국 체결량 : {kr_order_volume}
+            💰 한국 체결금액 : {kr_order_funds}₩
+            🌍 해외거래소 : {foreign_ex}
+            📊 해외 체결량 : {fr_order_volume}
+            📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
+            💰 주문 체결금액 : {fr_order_funds}$
+            ⚡ 레버리지 : {leverage}x
+            ═══════════════════════
+            📊 포착환율 : {round(current_ex_rate,2)}
+            📊 주문환율 : {order_rate}
+            💰 테더가격 : {usdt_price}
+            ═══════════════════════
+            '''
+            if telegram_notifications_enabled and telegram_chat_id:
+                await send_telegram(telegram_chat_id, message)
+            return
     except Exception as e:
         logger.error(f"작업 처리 중 에러가 발생했습니다: {e}", exc_info=True)
     return "error"
@@ -802,13 +836,8 @@ def work_task(data, retry_count=0):
                 # 모든 사용자를 동시에 처리 - 각 코루틴을 생성하여 gather로 실행 (create_task는 실행 중인 이벤트 루프에서만 사용)
                 tasks = [process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, foreign_ex, usdt_price)
                          for user in user_ids]
-                user_messages = loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-
-                # 결과 메시지 합치기
-                for msg in user_messages:
-                    if isinstance(msg, str) and msg:
-                        message += msg
-
+                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+        logger.info("작업이 성공적으로 완료되었습니다.")
     except (ConnectionError, TimeoutError) as e:
         logger.error(f"Redis connection error: {e}")
         if retry_count < 3:  # 무한루프 방지
@@ -820,31 +849,11 @@ def work_task(data, retry_count=0):
             return
     except Exception as e:
         logger.error(f"작업 처리 중 알 수 없는 에러가 발생했습니다: {e}", exc_info=True)
-        # exMgr.calc_exrate_batch에서 발생한 에러는 이미 위에서 처리됨 (message = "")
-        if not calc_exrate_batch_failed:
-            message += f'''
-❌ 시스템 오류
-┌─────────────────────
-│ ⚠️  작업 처리 중 알 수 없는 에러가 발생했습니다
-│ 🔧 시스템 점검이 필요합니다
-└─────────────────────
-'''
-        # 일반 에러는 재시도하지 않고 바로 중단
-        return
     finally:
-        # 작업 완료 후 Telegram 메시지 전송
-        # exMgr.calc_exrate_batch에서 에러가 난 경우에는 무조건 미전송 ~ 빗썸에서 잘못된 응답을 내려줘서 발생한 문제일 때가 많기 때문
-        if message and not calc_exrate_batch_failed:
-            # Exception이 발생하지 않은 경우 또는 calc_exrate_batch 외의 에러인 경우 메시지 전송
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(send_telegram(message))
-            logger.info(f"Telegram 메시지를 전송했습니다: {message}")
-        
         # 작업 실행 시간 로그
         execution_time = time.time() - start_time
         logger.info(f"work_task 실행 시간: {execution_time:.2f}초")
 
-    logger.info("작업이 성공적으로 완료되었습니다.")
     
 if __name__ == "__main__":
     app.worker_main()

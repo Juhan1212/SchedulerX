@@ -240,12 +240,13 @@ class ExchangeManager:
                 'kr_funds', 
                 'kr_fee',
                 'fr_price', 
+                'fr_original_price',
                 'fr_volume', 
                 'fr_funds', 
                 'fr_fee', 
                 'profit', 
                 'profit_rate',
-                'slippage'
+                'fr_slippage'
             ]
             field_scales = {
                 'entry_rate': 2,
@@ -255,12 +256,13 @@ class ExchangeManager:
                 'kr_funds': 8,
                 'kr_fee': 8,
                 'fr_price': 8,
+                'fr_original_price': 8,
                 'fr_volume': 8,
                 'fr_funds': 8,
                 'fr_fee': 8,
                 'profit': 2,
                 'profit_rate': 2,
-                'slippage': 4
+                'fr_slippage': 4
             }
             for key in numeric_fields:
                 if key in kwargs:

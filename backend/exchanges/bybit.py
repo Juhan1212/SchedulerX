@@ -56,7 +56,7 @@ class BybitExchange(ForeignExchange):
             Exception: API 호출 실패 시 발생하는 예외
         """
         try:
-            url = f"{cls.server_url}/v5/market/tickers?category=linear&baseCoin=USDT"
+            url = f"{cls.server_url}/v5/market/instruments-info?category=linear&status=Trading"
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:

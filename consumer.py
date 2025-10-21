@@ -356,6 +356,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'fr_exchange': foreign_ex.upper(),
                 'fr_order_id': fr_order_id,
                 'fr_price': float(fr_entry_price),
+                'fr_original_price': float(fr_order_details.get('orderPrice', 0)),
                 'fr_volume': float(fr_order_volume),
                 'fr_funds': float(fr_order_funds),
                 'fr_fee': float(fr_entry_fee),
@@ -364,7 +365,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'profit': float(profit),
                 'profit_rate': float(profit_rate),
                 'usdt_price': float(usdt_price),
-                'slippage': float(fr_slippage)
+                'fr_slippage': float(fr_slippage)
             }
             exMgr.insert_positions(user['id'], **position_data)
 
@@ -729,10 +730,11 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'fr_exchange': foreign_ex.upper(),
                 'fr_order_id': fr_order_id,
                 'fr_price': float(fr_entry_price),
+                'fr_original_price': float(fr_order_price),
                 'fr_volume': float(fr_order_volume),
                 'fr_funds': float(fr_order_funds),
                 'fr_fee': float(fr_entry_fee),
-                'slippage': float(fr_slippage),
+                'fr_slippage': float(fr_slippage),
                 'entry_rate': float(order_rate) if order_rate is not None else 0.0,
                 'usdt_price': float(usdt_price)
             }

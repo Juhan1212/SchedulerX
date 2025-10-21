@@ -29,6 +29,7 @@ def bybit_service():
 @pytest.mark.asyncio
 async def test_get_tickers_e2e(bybit_service: BybitExchange):
     tickers = await bybit_service.get_tickers()
+    print(len(tickers))
     assert isinstance(tickers, list)
     assert len(tickers) > 0
     # each item should be a (ticker, display_name) tuple

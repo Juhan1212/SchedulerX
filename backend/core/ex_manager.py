@@ -84,6 +84,18 @@ class ExchangeManager:
                         )
                     )
 
+                # ticker_infos에 없는 티커는 삭제
+                current_tickers = {info.get('ticker') for info in ticker_infos}
+                cursor.execute("SELECT coin_symbol FROM coins_exchanges WHERE exchange_id = %s", (exchange_id,))
+                existing_tickers = {row[0] for row in cursor.fetchall()}
+                tickers_to_delete = existing_tickers - current_tickers
+                if tickers_to_delete:
+                    cursor.execute(
+                        "DELETE FROM coins_exchanges WHERE exchange_id = %s AND coin_symbol = ANY(%s)",
+                        (exchange_id, list(tickers_to_delete))
+                    )
+                    logger.info(f"Deleted {len(tickers_to_delete)} obsolete tickers for {exchange_name}: {list(tickers_to_delete)}")
+
         tasks = [process_exchange(name, obj) for name, obj in self.exchanges.items()]
         await asyncio.gather(*tasks)
 

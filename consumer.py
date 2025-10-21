@@ -265,7 +265,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 return
             
             # 주문 체결 대기
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.3)
             # 실제 종료 주문 내역 조회
             fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, fr_order_id, kr_order_id)
 
@@ -535,7 +535,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 kr_entry_price = (kr_order_funds / executed_volume).quantize(Decimal('0.00000000'))
             else:
                 kr_entry_price = Decimal('0.00000000')
-            kr_entry_fee = Decimal(str(kr_order_result.get('reserved_fee', 0.0)))
+            kr_entry_fee = Decimal(str(kr_order_result.get('paid_fee', 0.0)))
 
             if not kr_order_volume or not kr_order_funds:
                 logger.error(f"한국거래소 주문 결과에서 volume을 찾을 수 없습니다: {kr_order_result} (유저 {user['email']})")
@@ -669,7 +669,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             # }
             
             if fr_order_result.get('orderStatus') != 'Filled':
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.3)
                 # 2차 조회
                 fr_order_result = await foreign_ex_cls.get_order(fr_order_id)
             

@@ -118,6 +118,7 @@ class ExchangeManager:
                     s.is_active, 
                     s.seed_amount,
                     s.coin_mode, 
+                    s.trade_mode,
                     s.selected_coins, 
                     s.entry_rate, 
                     s.exit_rate, 

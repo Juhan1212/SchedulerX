@@ -141,6 +141,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
     try:                
         # 유저 데이터
         coin_mode = user['coin_mode']
+        trade_mode = user['trade_mode']
         selected_coins = user['selected_coins']
         seed = user['seed_amount']
         seed_division = user['seed_division']
@@ -187,7 +188,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 exit_position_flag = False
 
         # 커스텀 모드인 경우, 목표환율 도달했는지 확인
-        if coin_mode == 'custom':
+        if trade_mode == 'custom':
             if current_ex_rate <= float(entry_rate):
                 entry_position_flag = True
             if current_ex_rate >= float(exit_rate):

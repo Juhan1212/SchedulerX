@@ -38,6 +38,32 @@ async def send_telegram(chat_id, message, message_type='text', parse_mode='Markd
         logger.error(f"Error occurred while sending telegram : {e}")
     return result
 
+async def send_telegram_to_admin(message, message_type='text', parse_mode='Markdown'):
+    admin_bot_id = os.getenv('TELEGRAM_ADMIN_BOT_TOKEN')
+    admin_chat_id = os.getenv('TELEGRAM_ADMIN_CHAT_ID')
+    if not admin_bot_id or not admin_chat_id:
+        raise ValueError("TELEGRAM_ADMIN_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID must be set in environment variables.")
+    
+    bot = Bot(token=admin_bot_id)
+    
+    result = ""
+    try:
+        if message_type == 'text':
+            # 메시지 포맷팅 개선
+            formatted_message = format_telegram_message(message)
+            result = await bot.send_message(
+                chat_id=admin_chat_id, 
+                text=formatted_message, 
+                parse_mode=parse_mode
+            )
+        elif message_type == 'photo':
+            result = await bot.send_photo(chat_id=admin_chat_id, photo=message)
+    except aiohttp.ClientError as e:
+        logger.error(f"Error occurred while sending telegram to admin: {e}")
+    except Exception as e:
+        logger.error(f"Error occurred while sending telegram to admin: {e}")
+    return result
+
 def format_telegram_message(message):
     """
     텔레그램 메시지 포맷팅을 개선합니다.

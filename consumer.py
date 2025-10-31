@@ -16,7 +16,7 @@ from backend.exchanges.base import ForeignExchange, KoreanExchange
 from backend.exchanges.bithumb import BithumbExchange
 from backend.exchanges.bybit import BybitExchange
 from backend.exchanges.upbit import UpbitExchange
-from backend.utils.telegram import send_telegram
+from backend.utils.telegram import send_telegram, send_telegram_to_admin
 import gzip
 import base64
 
@@ -273,7 +273,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 return
             
             # 주문 체결 대기
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.5)
             # 실제 종료 주문 내역 조회
             fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, fr_order_id, kr_order_id)
 
@@ -845,6 +845,8 @@ def work_task(data, retry_count=0):
             return
     except Exception as e:
         logger.error(f"작업 처리 중 알 수 없는 에러가 발생했습니다: {e}", exc_info=True)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(send_telegram_to_admin(e))
     finally:
         # 작업 실행 시간 로그
         execution_time = time.time() - start_time

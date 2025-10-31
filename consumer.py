@@ -701,7 +701,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             # }
             
             if fr_order_result.get('orderStatus') != 'Filled':
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)
                 # 2차 조회
                 fr_order_result = await foreign_ex_cls.get_order(fr_order_id)
             

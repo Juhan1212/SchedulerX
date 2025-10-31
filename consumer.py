@@ -789,9 +789,6 @@ def work_task(data, retry_count=0):
     start_time = time.time()
     logger.debug(f"수신된 데이터 : {data}")
 
-    message = ""
-    calc_exrate_batch_failed = False
-
     try:
         # 현재 테더 가격 조회 ~ 테더 가격 1초 캐시 적용되어있음. 
         loop = asyncio.get_event_loop()
@@ -804,8 +801,6 @@ def work_task(data, retry_count=0):
             res = loop.run_until_complete(exMgr.calc_exrate_batch(data))
         except Exception as e:
             logger.error(f"exMgr.calc_exrate_batch 실행 중 에러 발생: {e}", exc_info=True)
-            calc_exrate_batch_failed = True
-            message = ""  # calc_exrate_batch 실패 시 텔레그램 메시지 무조건 미전송
             raise  # 예외를 상위 except로 전달
 
         if res:

@@ -56,7 +56,7 @@ class BybitExchange(ForeignExchange):
             Exception: API 호출 실패 시 발생하는 예외
         """
         try:
-            url = f"{cls.server_url}/v5/market/instruments-info?category=linear&status=Trading"
+            url = f"{cls.server_url}/v5/market/instruments-info?category=linear&limit=1000"
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:
@@ -64,6 +64,8 @@ class BybitExchange(ForeignExchange):
                         raise Exception(f"Bybit API Error: {res.status} - {await res.text()}")
 
                     response = await res.json()
+                    with open('bybit_tickers.json', 'w') as f:
+                        f.write(pyjson.dumps(response, indent=2))
                     if response.get("retCode") == 0:  # 성공 코드 확인
                         return [
                             (x['symbol'].replace('USDT', ''), x['symbol'].replace('USDT', ''))
@@ -624,8 +626,10 @@ class BybitExchange(ForeignExchange):
         tickers = await self.get_tickers()  # [('BTC', 'BTC'), ...]
         # Bybit은 네트워크 정보가 chain으로 제공됨
         coin_list = [ticker for ticker, _ in tickers]
+        print("XRP" in coin_list)
         # 입출금 정보 전체 조회
         coin_infos = await self.get_depo_with_pos_tickers()
+        print("XRP" in [info['coin'] for info in coin_infos])
         result = []
         for ticker, display_name in tickers:
             # 여러 체인 중 대표 체인(chainType==ticker) 우선

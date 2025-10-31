@@ -104,3 +104,19 @@ async def test_closed_pnl_e2e(bybit_service: BybitExchange):
     # result may contain keys like 'list' and 'nextPageCursor'
     pnl_list = result.get("list", [])
     assert isinstance(pnl_list, list)
+    
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_get_depo_with_pos_tickers(bybit_service):
+    tickers = await bybit_service.get_depo_with_pos_tickers()
+    print(json.dumps(tickers, indent=2)) 
+    assert isinstance(tickers, list)
+    assert all(isinstance(t, str) for t in tickers)
+    
+@pytest.mark.e2e
+@pytest.mark.asyncio    
+async def test_get_full_ticker_info(bybit_service):
+    ticker_info = await bybit_service.get_full_ticker_info()
+    a = list(filter(lambda x: x.get('ticker') == 'XRP', ticker_info))
+    print(json.dumps(a, indent=2)) 

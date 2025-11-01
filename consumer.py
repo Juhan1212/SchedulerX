@@ -276,6 +276,9 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             await asyncio.sleep(0.5)
             # 실제 종료 주문 내역 조회
             fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, fr_order_id, kr_order_id)
+            
+            logger.info(f"해외거래소 종료 주문 상세: {json.dumps(fr_order_details, indent=2)}")
+            logger.info(f"한국거래소 종료 주문 상세: {json.dumps(kr_order_details, indent=2)}")
 
             # 실제 종료 환율 계산
             # 해외거래소 종료(청산) 금액 (USDT)

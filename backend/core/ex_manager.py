@@ -435,8 +435,9 @@ class ExchangeManager:
                 raise ValueError(f"Unknown foreign exchange: {foreign_ex}")
             foreign_requests.append((foreign_ex_class, coin_symbol, i))
         
-        # 한국거래소 배치 요청
-        korean_results = {}  # {original_index: orderbook}
+        # 한국거래소 배치 요청 준비
+        korean_tasks = []
+        korean_task_metadata = []  # (korean_ex_name, indices)를 저장
         
         for korean_ex_name, coin_data in korean_groups.items():
             korean_ex_class = get_exchange_class(korean_ex_name)
@@ -447,17 +448,27 @@ class ExchangeManager:
             indices = [idx for _, idx in coin_data]
             
             # 한국거래소는 한 번의 요청으로 여러 코인 처리
-            batch_result = await korean_ex_class.get_ticker_orderbook(coin_symbols)
-            
-            # 결과 매핑
-            for orderbook, original_idx in zip(batch_result, indices):
-                korean_results[original_idx] = orderbook
+            korean_tasks.append(korean_ex_class.get_ticker_orderbook(coin_symbols))
+            korean_task_metadata.append((korean_ex_name, indices))
         
-        # 해외거래소 병렬 요청
-        foreign_orderbooks = await asyncio.gather(*[
+        # 해외거래소 요청 준비
+        foreign_tasks = [
             foreign_ex_class.get_ticker_orderbook(coin_symbol)
             for foreign_ex_class, coin_symbol, _ in foreign_requests
-        ])
+        ]
+        
+        # 한국거래소와 해외거래소 요청을 동시에 실행
+        all_results = await asyncio.gather(*korean_tasks, *foreign_tasks)
+        
+        # 결과를 한국거래소와 해외거래소로 분리
+        korean_batch_results = all_results[:len(korean_tasks)]
+        foreign_orderbooks = all_results[len(korean_tasks):]
+        
+        # 한국거래소 결과 매핑
+        korean_results = {}  # {original_index: orderbook}
+        for batch_result, (korean_ex_name, indices) in zip(korean_batch_results, korean_task_metadata):
+            for orderbook, original_idx in zip(batch_result, indices):
+                korean_results[original_idx] = orderbook
         
         # 해외거래소 결과 매핑
         foreign_results = {}
@@ -477,22 +488,22 @@ class ExchangeManager:
                 available_size = 0
                 remaining_seed = seed
                 for unit in ob1["orderbook"]:
-                    ob_quote_volume = unit["ask_price"] * unit["ask_size"]
+                    ob_quote_volume = unit["bid_price"] * unit["bid_size"]
                     if remaining_seed >= ob_quote_volume:
-                        available_size += unit["ask_size"]
+                        available_size += unit["bid_size"]
                         remaining_seed -= ob_quote_volume
                     else:
-                        available_size += remaining_seed / unit["ask_price"]
+                        available_size += remaining_seed / unit["bid_price"]
                         break
                 
                 remaining_size = available_size
                 quote_volume = 0
                 for unit in ob2["orderbook"]:
-                    if remaining_size >= unit["bid_size"]:
-                        quote_volume += unit["bid_price"] * unit["bid_size"]
-                        remaining_size -= unit["bid_size"]
+                    if remaining_size >= unit["ask_size"]:
+                        quote_volume += unit["ask_price"] * unit["ask_size"]
+                        remaining_size -= unit["ask_size"]
                     else:
-                        quote_volume += unit["bid_price"] * remaining_size
+                        quote_volume += unit["ask_price"] * remaining_size
                         break
                 
                 if available_size == 0 or quote_volume == 0:

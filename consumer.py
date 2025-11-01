@@ -508,7 +508,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 return
             
             # 주문 체결 대기
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.5)
             
             # 한국거래소 주문 체결량 조회
             kr_order_result = await korean_ex_cls.get_order(kr_order_id)
@@ -544,7 +544,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             #     ]
             # }
             if kr_order_result.get('trades', []) == []:
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.5)
                 # 2차 조회
                 kr_order_result = await korean_ex_cls.get_order(kr_order_id)
 
@@ -649,7 +649,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                     await send_telegram(telegram_chat_id, message)
                 return
             
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.5)
             
             # 해외거래소 주문 결과 조회
             fr_order_result = await foreign_ex_cls.get_order(fr_order_id)

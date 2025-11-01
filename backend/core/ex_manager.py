@@ -483,27 +483,33 @@ class ExchangeManager:
             ob1 = korean_results[i]
             ob2 = foreign_results[i]
 
+            # ob1(한국거래소): 매도호가 기준 오름차순 정렬 보장
+            ob1["orderbook"] = sorted(ob1["orderbook"], key=lambda x: x["ask_price"])
+            
+            # ob2(해외거래소): 매수호가 기준 내림차순 정렬 보장
+            ob2["orderbook"] = sorted(ob2["orderbook"], key=lambda x: x["bid_price"], reverse=True)
+
             ex_rates = []
             for seed in seeds:
                 available_size = 0
                 remaining_seed = seed
                 for unit in ob1["orderbook"]:
-                    ob_quote_volume = unit["bid_price"] * unit["bid_size"]
+                    ob_quote_volume = unit["ask_price"] * unit["ask_size"]
                     if remaining_seed >= ob_quote_volume:
-                        available_size += unit["bid_size"]
+                        available_size += unit["ask_size"]
                         remaining_seed -= ob_quote_volume
                     else:
-                        available_size += remaining_seed / unit["bid_price"]
+                        available_size += remaining_seed / unit["ask_price"]
                         break
                 
                 remaining_size = available_size
                 quote_volume = 0
                 for unit in ob2["orderbook"]:
-                    if remaining_size >= unit["ask_size"]:
-                        quote_volume += unit["ask_price"] * unit["ask_size"]
-                        remaining_size -= unit["ask_size"]
+                    if remaining_size >= unit["bid_size"]:
+                        quote_volume += unit["bid_price"] * unit["bid_size"]
+                        remaining_size -= unit["bid_size"]
                     else:
-                        quote_volume += unit["ask_price"] * remaining_size
+                        quote_volume += unit["bid_price"] * remaining_size
                         break
                 
                 if available_size == 0 or quote_volume == 0:

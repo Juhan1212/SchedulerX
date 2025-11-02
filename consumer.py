@@ -249,6 +249,65 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             if not positionDB:
                 logger.error(f"포지션 정보 조회 실패 - user_id: {user['email']}, ticker: {item['name']}")
                 return
+            
+            # 포지션 종료전 환율 재확인
+            recheck_data = [(korean_ex, foreign_ex, item['name'])]
+            recheck_result = await exMgr.calc_exrate_batch(recheck_data)
+            
+            if not recheck_result or len(recheck_result) == 0:
+                logger.error(f"환율 재확인 실패 - user: {user['email']}, ticker: {item['name']}")
+                return
+            
+            # 재확인한 환율 데이터에서 entry_seed에 맞는 환율 찾기
+            recheck_ex_rates = sorted(recheck_result[0].get('ex_rates', []), key=lambda r: r.get('seed', 0))
+            recheck_ex_rate_info = None
+            for rate in recheck_ex_rates:
+                if entry_seed < rate.get('seed', 0):
+                    recheck_ex_rate_info = rate
+                    break
+            
+            if not recheck_ex_rate_info or recheck_ex_rate_info['exit_ex_rate'] is None:
+                logger.error(f"환율 재확인 데이터 추출 실패 - user: {user['email']}, ticker: {item['name']}, entry_seed: {entry_seed}")
+                return
+            
+            rechecked_exit_ex_rate = recheck_ex_rate_info['exit_ex_rate']
+            
+            # 환율 오차범위 검증 (0.5% 이내)
+            rate_difference = abs(rechecked_exit_ex_rate - current_exit_ex_rate)
+            rate_difference_percent = (rate_difference / current_exit_ex_rate) * 100
+            
+            if rate_difference_percent > 0.5:
+                logger.warning(f'''
+                                환율 변동으로 포지션 종료 취소
+                                유저 : {user['email']}
+                                티커 : {item['name']}
+                                초기 환율 : {current_exit_ex_rate}
+                                재확인 환율 : {rechecked_exit_ex_rate}
+                                변동률 : {rate_difference_percent:.2f}%
+                            ''')
+                message += f'''
+                ⚠️ 포지션 종료 취소
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🪙 티커 : {item['name']}
+                │ ❗ 사유 : 환율 변동폭 초과
+                │ 📊 포착 환율 : {current_exit_ex_rate}
+                │ 📊 재확인 환율 : {rechecked_exit_ex_rate}
+                │ 📈 변동률 : {rate_difference_percent:.2f}%
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
+            
+            logger.info(f'''
+                            환율 재확인 완료
+                            유저 : {user['email']}
+                            티커 : {item['name']}
+                            초기 환율 : {current_exit_ex_rate}
+                            재확인 환율 : {rechecked_exit_ex_rate}
+                            변동률 : {rate_difference_percent:.2f}%
+                        ''')
 
             # 포지션 종료
             exit_results = await exMgr.exit_position(korean_ex_cls, foreign_ex_cls, item['name'], positionDB['total_kr_volume'])
@@ -481,6 +540,65 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 # 물타기 허용이면서 현재 환율이 기존 포지션의 평균 진입가보다 높으면 진입 불가
                 if allow_average_down and current_entry_ex_rate > existing_positions.get('avg_entry_rate', 0):
                     return message
+                
+            # 포지션 실제 주문하기 전에 환율 재확인
+            recheck_data = [(korean_ex, foreign_ex, item['name'])]
+            recheck_result = await exMgr.calc_exrate_batch(recheck_data)
+            
+            if not recheck_result or len(recheck_result) == 0:
+                logger.error(f"환율 재확인 실패 - user: {user['email']}, ticker: {item['name']}")
+                return
+            
+            # 재확인한 환율 데이터에서 entry_seed에 맞는 환율 찾기
+            recheck_ex_rates = sorted(recheck_result[0].get('ex_rates', []), key=lambda r: r.get('seed', 0))
+            recheck_ex_rate_info = None
+            for rate in recheck_ex_rates:
+                if entry_seed < rate.get('seed', 0):
+                    recheck_ex_rate_info = rate
+                    break
+            
+            if not recheck_ex_rate_info or recheck_ex_rate_info['entry_ex_rate'] is None:
+                logger.error(f"환율 재확인 데이터 추출 실패 - user: {user['email']}, ticker: {item['name']}, entry_seed: {entry_seed}")
+                return
+            
+            rechecked_entry_ex_rate = recheck_ex_rate_info['entry_ex_rate']
+            
+            # 환율 오차범위 검증 (0.5% 이내)
+            rate_difference = abs(rechecked_entry_ex_rate - current_entry_ex_rate)
+            rate_difference_percent = (rate_difference / current_entry_ex_rate) * 100
+            
+            if rate_difference_percent > 0.5:
+                logger.warning(f'''
+                                환율 변동으로 주문 취소
+                                유저 : {user['email']}
+                                티커 : {item['name']}
+                                초기 환율 : {current_entry_ex_rate}
+                                재확인 환율 : {rechecked_entry_ex_rate}
+                                변동률 : {rate_difference_percent:.2f}%
+                            ''')
+                message += f'''
+                ⚠️ 포지션 진입 취소
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🪙 티커 : {item['name']}
+                │ ❗ 사유 : 환율 변동폭 초과
+                │ 📊 포착 환율 : {current_entry_ex_rate}
+                │ 📊 재확인 환율 : {rechecked_entry_ex_rate}
+                │ 📈 변동률 : {rate_difference_percent:.2f}%
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
+            
+            logger.info(f'''
+                            환율 재확인 완료
+                            유저 : {user['email']}
+                            티커 : {item['name']}
+                            초기 환율 : {current_entry_ex_rate}
+                            재확인 환율 : {rechecked_entry_ex_rate}
+                            변동률 : {rate_difference_percent:.2f}%
+                        ''')
 
             # 한국거래소 먼저 주문 ~ 주문량을 알아야 같은 주문량으로 해외거래소에서 포지션을 잡을 수 있기 때문
             kr_order = await korean_ex_cls.order(item['name'], 'bid', entry_seed)

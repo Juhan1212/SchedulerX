@@ -12,7 +12,7 @@ def ex_manager():
 
 @pytest.fixture
 def tickers():
-    return [('upbit', 'bybit', 'BTC'), ('upbit', 'bybit', 'ETH'), ('upbit', 'bybit', 'XRP')]
+    return [('bithumb', 'bybit', 'MANTA')]
 
 def test_register_exchange(ex_manager):
     dummy_exchange = object()
@@ -26,6 +26,6 @@ def test_get_common_tickers_from_db(ex_manager):
 @pytest.mark.asyncio
 async def test_calc_exrate_batch(ex_manager, tickers):
     result = await ex_manager.calc_exrate_batch(tickers)
-    with open('test_calc_exrate_batch_output.json', 'w') as f:
-        json.dump(result, f, indent=2)
+    # with open('test_calc_exrate_batch_output.json', 'w') as f:
+    #     json.dump(result, f, indent=2)
     print(json.dumps(result, indent=2))

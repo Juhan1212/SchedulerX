@@ -491,6 +491,8 @@ class ExchangeManager:
 
             ex_rates = []
             for seed in seeds:
+                # === 포지션 진입 시 환율 계산 ===
+                # 한국거래소: 매수 (매도호가 사용)
                 available_size = 0
                 remaining_seed = seed
                 for unit in ob1["orderbook"]:
@@ -502,6 +504,7 @@ class ExchangeManager:
                         available_size += remaining_seed / unit["ask_price"]
                         break
                 
+                # 해외거래소: 매도 (매수호가 사용)
                 remaining_size = available_size
                 quote_volume = 0
                 for unit in ob2["orderbook"]:
@@ -513,15 +516,46 @@ class ExchangeManager:
                         break
                 
                 if available_size == 0 or quote_volume == 0:
-                    exchange_rate = None
+                    entry_exchange_rate = None
                 else:
-                    exchange_rate = Decimal(str(seed)) / Decimal(str(quote_volume))
-                    exchange_rate = exchange_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                    exchange_rate = float(exchange_rate)
+                    entry_exchange_rate = Decimal(str(seed)) / Decimal(str(quote_volume))
+                    entry_exchange_rate = entry_exchange_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    entry_exchange_rate = float(entry_exchange_rate)
+
+                # === 포지션 종료 시 환율 계산 ===
+                # 한국거래소: 매도 (매수호가 사용)
+                available_size = 0
+                remaining_size_exit = seed
+                for unit in ob1["orderbook"]:
+                    if remaining_size_exit >= unit["bid_size"] * unit["bid_price"]:
+                        available_size += unit["bid_size"]
+                        remaining_size_exit -= unit["bid_size"] * unit["bid_price"]
+                    else:
+                        available_size += remaining_size_exit / unit["bid_price"]
+                        break
+
+                # 해외거래소: 매수 (매도호가 사용)
+                exit_fr_funds = 0
+                remaining_size_exit_fr = available_size
+                for unit in ob2["orderbook"]:
+                    if remaining_size_exit_fr >= unit["ask_size"]:
+                        exit_fr_funds += unit["ask_price"] * unit["ask_size"]
+                        remaining_size_exit_fr -= unit["ask_size"]
+                    else:
+                        exit_fr_funds += unit["ask_price"] * remaining_size_exit_fr
+                        break
+                
+                if exit_fr_funds == 0:
+                    exit_exchange_rate = None
+                else:
+                    exit_exchange_rate = Decimal(str(seed)) / Decimal(str(exit_fr_funds))
+                    exit_exchange_rate = exit_exchange_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    exit_exchange_rate = float(exit_exchange_rate)
 
                 ex_rates.append({
                     'seed': seed,
-                    'ex_rate': exchange_rate
+                    'entry_ex_rate': entry_exchange_rate,
+                    'exit_ex_rate': exit_exchange_rate
                 })
                 
             results.append({

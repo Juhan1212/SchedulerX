@@ -128,9 +128,9 @@ async def get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls):
         foreign_ex_cls.get_available_balance()
     )
 
-async def fetch_order_details(foreign_ex_cls, korean_ex_cls, fr_order_id, kr_order_id):
+async def fetch_order_details(foreign_ex_cls, korean_ex_cls, symbol, kr_order_id):
     fr_order_details, kr_order_details = await asyncio.gather(
-        foreign_ex_cls.get_position_closed_pnl(fr_order_id),
+        foreign_ex_cls.get_position_closed_pnl(symbol),
         korean_ex_cls.get_order(kr_order_id)
     )
     return fr_order_details, kr_order_details
@@ -173,10 +173,11 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             logger.error(f"No matching ex_rate found for user {user['email']} with entry_seed {entry_seed} in item {item['name']}. Skipping.")
             return
         
-        current_ex_rate = ex_rate_info['ex_rate']
+        current_entry_ex_rate = ex_rate_info['entry_ex_rate']
+        current_exit_ex_rate = ex_rate_info['exit_ex_rate']
 
         # 방어로직 - 호가창 모두 소진되어도 주문금액이 남는 경우 제대로된 환율 계산 불가
-        if current_ex_rate is None:
+        if current_entry_ex_rate is None or current_exit_ex_rate is None:
             logger.error(f"환율 계산에 실패했습니다. 호가창이 모두 소진되었을 수 있습니다. user: {user['email']}, ticker: {item['name']}, entry_seed: {entry_seed}")
             return
 
@@ -189,20 +190,20 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
 
         # 커스텀 모드인 경우, 목표환율 도달했는지 확인
         if trade_mode == 'custom':
-            if current_ex_rate <= float(entry_rate):
+            if current_entry_ex_rate <= float(entry_rate):
                 entry_position_flag = True
-            if current_ex_rate >= float(exit_rate):
+            if current_exit_ex_rate >= float(exit_rate):
                 exit_position_flag = True
         # todo : AI를 적용해서 더 개선할 수 있는 방안 고민    
         # 자동 모드인 경우, 진입환율 대비 1% 이상 상승했는지 확인 
         else:
-            if current_ex_rate <= float(usdt_price) * 0.99:
+            if current_entry_ex_rate <= float(usdt_price) * 0.99:
                 entry_position_flag = True
             else:
                 positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
                 if positionDB:
                     avg_entry_rate = positionDB.get('avg_entry_rate', 0)
-                    if current_ex_rate >= float(avg_entry_rate) * 1.01:
+                    if current_exit_ex_rate >= float(avg_entry_rate) * 1.02:
                         exit_position_flag = True
                 
         # for mock test
@@ -221,7 +222,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                                 한국거래소 : {korean_ex}
                                 해외거래소 : {foreign_ex}
                                 티커 : {item['name']}
-                                현재환율 : {round(current_ex_rate,2)}
+                                현재환율 : {round(current_exit_ex_rate,2)}
                                 테더가격 : {usdt_price}
                                 Karbit 주문내역 존재 : o
                                 실제 거래소 포지션 : x
@@ -275,7 +276,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             # 주문 체결 대기
             await asyncio.sleep(0.5)
             # 실제 종료 주문 내역 조회
-            fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, fr_order_id, kr_order_id)
+            fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, item['name'], kr_order_id)
             
             logger.info(f"해외거래소 종료 주문 상세: {json.dumps(fr_order_details, indent=2)}")
             logger.info(f"한국거래소 종료 주문 상세: {json.dumps(kr_order_details, indent=2)}")
@@ -392,7 +393,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             🇰🇷 한국거래소 : {korean_ex}
             🌍 해외거래소 : {foreign_ex}
             🪙 티커 : {item['name']}
-            📊 포착환율 : {round(current_ex_rate,2)}
+            📊 포착환율 : {round(current_entry_ex_rate,2)}
             💰 테더가격 : {usdt_price}
             ═══════════════════════
             '''
@@ -478,7 +479,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                     return message
 
                 # 물타기 허용이면서 현재 환율이 기존 포지션의 평균 진입가보다 높으면 진입 불가
-                if allow_average_down and current_ex_rate > existing_positions.get('avg_entry_rate', 0):
+                if allow_average_down and current_entry_ex_rate > existing_positions.get('avg_entry_rate', 0):
                     return message
 
             # 한국거래소 먼저 주문 ~ 주문량을 알아야 같은 주문량으로 해외거래소에서 포지션을 잡을 수 있기 때문
@@ -770,7 +771,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             💰 주문 체결금액 : {fr_order_funds}$
             ⚡ 레버리지 : {leverage}x
             ═══════════════════════
-            📊 포착환율 : {round(current_ex_rate,2)}
+            📊 포착환율 : {round(current_entry_ex_rate,2)}
             📊 주문환율 : {order_rate}
             💰 테더가격 : {usdt_price}
             ═══════════════════════

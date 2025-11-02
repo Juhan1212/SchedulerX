@@ -35,7 +35,7 @@ async def test_get_tickers_e2e(bybit_service: BybitExchange):
     # each item should be a (ticker, display_name) tuple
     sym, disp = tickers[0]
     assert isinstance(sym, str) and isinstance(disp, str)
-
+    
 
 @pytest.mark.e2e
 @pytest.mark.asyncio

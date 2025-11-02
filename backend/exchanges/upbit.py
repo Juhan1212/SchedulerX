@@ -76,7 +76,7 @@ class UpbitExchange(KoreanExchange):
             raise
 
     @classmethod
-    async def get_ticker_orderbook(cls, tickers: list[str], count: int = 30):
+    async def get_ticker_orderbook(cls, tickers: list[str], count: int = 100):
         """
         Upbit에서 여러 티커의 주문서를 한 번에 가져옵니다.
 

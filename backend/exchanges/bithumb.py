@@ -73,7 +73,7 @@ class BithumbExchange(KoreanExchange):
             raise
 
     @classmethod
-    async def get_ticker_orderbook(cls, tickers: list[str], count: int = 30):
+    async def get_ticker_orderbook(cls, tickers: list[str], count: int = 100):
         """
         Bithumb에서 여러 티커의 주문서를 한 번에 가져옵니다.
 
@@ -87,7 +87,7 @@ class BithumbExchange(KoreanExchange):
         """
         try:
             markets = ",".join([f"KRW-{ticker}" for ticker in tickers])
-            url = f"{cls.server_url}/v1/orderbook?markets={markets}"
+            url = f"{cls.server_url}/v1/orderbook?markets={markets}&count={count}"
             headers = {"accept": "application/json"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as res:

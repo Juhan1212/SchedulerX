@@ -42,6 +42,8 @@ async def test_get_tickers_e2e(bybit_service: BybitExchange):
 async def test_orderbook_e2e(bybit_service: BybitExchange):
     # Use a liquid symbol like BTC
     ob = await bybit_service.get_ticker_orderbook("BTC")
+    with open("bybit_btc_orderbook_e2e_output.json", "w") as f:
+        json.dump(ob, f, indent=2)
     assert isinstance(ob, dict)
     assert ob.get("ticker") == "BTC"
     assert isinstance(ob.get("timestamp"), (int, float))

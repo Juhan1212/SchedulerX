@@ -480,14 +480,11 @@ class ExchangeManager:
         seeds = [i for i in range(1000000, 100_000_001, 1000000)] # KRW
         
         for i, (korean_ex, foreign_ex, coin_symbol) in enumerate(tickers):
-            ob1 = korean_results[i]
-            ob2 = foreign_results[i]
+            korean_ob = korean_results[i]
+            foreign_ob = foreign_results[i]
 
-            # ob1(한국거래소): 매도호가 기준 오름차순 정렬 보장
-            ob1["orderbook"] = sorted(ob1["orderbook"], key=lambda x: x["ask_price"])
-            
-            # ob2(해외거래소): 매수호가 기준 내림차순 정렬 보장
-            ob2["orderbook"] = sorted(ob2["orderbook"], key=lambda x: x["bid_price"], reverse=True)
+            # 오더북은 이미 거래소에서 정렬된 상태로 제공됨 (정렬 불필요)
+            # 각 레벨: {ask_price, bid_price, ask_size, bid_size}
 
             ex_rates = []
             for seed in seeds:
@@ -495,7 +492,7 @@ class ExchangeManager:
                 # 한국거래소: 매수 (매도호가 사용)
                 available_size = 0
                 remaining_seed = seed
-                for unit in ob1["orderbook"]:
+                for unit in korean_ob["orderbook"]:
                     ob_quote_volume = unit["ask_price"] * unit["ask_size"]
                     if remaining_seed >= ob_quote_volume:
                         available_size += unit["ask_size"]
@@ -507,7 +504,7 @@ class ExchangeManager:
                 # 해외거래소: 매도 (매수호가 사용)
                 remaining_size = available_size
                 quote_volume = 0
-                for unit in ob2["orderbook"]:
+                for unit in foreign_ob["orderbook"]:
                     if remaining_size >= unit["bid_size"]:
                         quote_volume += unit["bid_price"] * unit["bid_size"]
                         remaining_size -= unit["bid_size"]
@@ -526,7 +523,7 @@ class ExchangeManager:
                 # 한국거래소: 매도 (매수호가 사용)
                 available_size = 0
                 remaining_size_exit = seed
-                for unit in ob1["orderbook"]:
+                for unit in korean_ob["orderbook"]:
                     if remaining_size_exit >= unit["bid_size"] * unit["bid_price"]:
                         available_size += unit["bid_size"]
                         remaining_size_exit -= unit["bid_size"] * unit["bid_price"]
@@ -537,7 +534,7 @@ class ExchangeManager:
                 # 해외거래소: 매수 (매도호가 사용)
                 exit_fr_funds = 0
                 remaining_size_exit_fr = available_size
-                for unit in ob2["orderbook"]:
+                for unit in foreign_ob["orderbook"]:
                     if remaining_size_exit_fr >= unit["ask_size"]:
                         exit_fr_funds += unit["ask_price"] * unit["ask_size"]
                         remaining_size_exit_fr -= unit["ask_size"]
@@ -559,7 +556,7 @@ class ExchangeManager:
                 })
                 
             results.append({
-                "name": ob1["ticker"],
+                "name": korean_ob["ticker"],
                 "korean_ex": korean_ex,
                 "foreign_ex": foreign_ex,
                 "ex_rates": ex_rates

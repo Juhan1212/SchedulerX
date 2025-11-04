@@ -164,7 +164,8 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         ex_rates_sorted = sorted(item.get('ex_rates', []), key=lambda r: r.get('seed', 0))
         ex_rate_info = None
         for rate in ex_rates_sorted:
-            if entry_seed < rate.get('seed', 0):
+            # entry_seed 이상인 첫 번째 시드를 선택 (기존: entry_seed < seed, 변경: entry_seed <= seed)
+            if entry_seed <= rate.get('seed', 0):
                 ex_rate_info = rate
                 break
 
@@ -262,7 +263,8 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             recheck_ex_rates = sorted(recheck_result[0].get('ex_rates', []), key=lambda r: r.get('seed', 0))
             recheck_ex_rate_info = None
             for rate in recheck_ex_rates:
-                if entry_seed < rate.get('seed', 0):
+                # entry_seed 이상인 첫 번째 시드를 선택 (기존: entry_seed < seed, 변경: entry_seed <= seed)
+                if entry_seed <= rate.get('seed', 0):
                     recheck_ex_rate_info = rate
                     break
             
@@ -553,7 +555,8 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             recheck_ex_rates = sorted(recheck_result[0].get('ex_rates', []), key=lambda r: r.get('seed', 0))
             recheck_ex_rate_info = None
             for rate in recheck_ex_rates:
-                if entry_seed < rate.get('seed', 0):
+                # entry_seed 이상인 첫 번째 시드를 선택 (기존: entry_seed < seed, 변경: entry_seed <= seed)
+                if entry_seed <= rate.get('seed', 0):
                     recheck_ex_rate_info = rate
                     break
             

@@ -59,6 +59,8 @@ sudo yum install -y postgresql15
 sudo sed -i 's/^#SystemMaxUse=.*/SystemMaxUse=10M/' /etc/systemd/journald.conf
 sudo sed -i 's/^#MaxRetentionSec=.*/MaxRetentionSec=7day/' /etc/systemd/journald.conf
 
+sudo systemctl restart systemd-journald
+
 # nodejs 설치 (프론트엔드 빌드용)
 sudo yum install -y nodejs
 

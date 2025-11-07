@@ -201,7 +201,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             if current_entry_ex_rate <= float(usdt_price) * 0.99:
                 entry_position_flag = True
             else:
-                positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
+                positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'], korean_ex.upper(), foreign_ex.upper())
                 if positionDB:
                     avg_entry_rate = positionDB.get('avg_entry_rate', 0)
                     if current_exit_ex_rate >= float(avg_entry_rate) * 1.02:
@@ -245,7 +245,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 return
             
             # 검증 및 정산을 위해 포지션 정보 조회
-            positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
+            positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'], korean_ex.upper(), foreign_ex.upper())
             
             if not positionDB:
                 logger.error(f"포지션 정보 조회 실패 - user_id: {user['email']}, ticker: {item['name']}")
@@ -533,7 +533,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 return
             
             # 검증 4. 이미 진입한 포지션이라면, 물타기 허용여부에 따라 더 낮은 환율에서만 진입 허용
-            existing_positions = exMgr.get_user_positions_for_settlement(user['id'], item['name'])
+            existing_positions = exMgr.get_user_positions_for_settlement(user['id'], item['name'], korean_ex.upper(), foreign_ex.upper())
             if existing_positions:
                 # 물타기 허용이 안되면 진입 불가
                 if not allow_average_down:
@@ -835,7 +835,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             fr_entry_price = Decimal(str(fr_order_result.get('lastPriceOnCreated', 0)))
             fr_order_price = Decimal(str(fr_order_result.get('price', 0)))
             fr_entry_fee = fr_order_result.get('cumExecFee', 0.0)
-            fr_slippage = abs((Decimal(str(fr_order_result.get('avgPrice', 0))) - fr_order_price)) / fr_order_price * Decimal('100')
+            fr_slippage = abs((Decimal(str(fr_order_result.get('avgPrice', 0))) - fr_entry_price)) / fr_entry_price * Decimal('100')
             
             # 주문환율 구하기
             order_rate = (kr_order_funds / fr_order_funds).quantize(Decimal('0.01'), rounding=ROUND_DOWN) if fr_order_funds else None

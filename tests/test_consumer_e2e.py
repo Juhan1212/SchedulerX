@@ -24,7 +24,7 @@ def test_work_task_entry_e2e():
     # work_task 함수를 호출합니다.
     # 포지션 진입 로직이 실행되려면, DB에 자동매매가 활성화된 사용자가 있어야 하고,
     # 시장 진입 조건(자동 모드의 경우 ex_rate <= usdt_price * 0.99)이 충족되어야 합니다.
-    work_task(data=data, korean_ex=korean_ex, foreign_ex=foreign_ex)
+    work_task(data=data)
 
 def test_exMgr_get_user_positions_for_settlement():
     exMgr = ExchangeManager()
@@ -33,7 +33,9 @@ def test_exMgr_get_user_positions_for_settlement():
 
     user_id = '6'
     item_name = 'AXS'
-    positions = exMgr.get_user_positions_for_settlement(user_id, item_name)
+    kr_exchange = 'upbit'
+    fr_exchange = 'bybit'
+    positions = exMgr.get_user_positions_for_settlement(user_id, item_name, kr_exchange.upper(), fr_exchange.upper())
     assert isinstance(positions, list)
     
 @pytest.mark.asyncio

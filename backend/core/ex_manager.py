@@ -145,11 +145,17 @@ class ExchangeManager:
                 return [dict(zip(colnames, row)) for row in rows]
             return []
         
-    def get_user_positions_for_settlement(self, user_id, coin_symbol):
+    def get_user_positions_for_settlement(self, user_id, coin_symbol, kr_exchange, fr_exchange):
         """
         마지막 OPEN 포지션부터 마지막 포지션까지 모두 조회하여
         profit, profitRate, 평균진입환율(피라미딩)을 계산합니다.
         실제 positions 테이블 구조 반영 (size 대신 kr_volume, fr_volume, kr_funds, fr_funds 등 사용)
+        
+        Args:
+            user_id: 사용자 ID
+            coin_symbol: 코인 심볼
+            kr_exchange: 한국 거래소 이름
+            fr_exchange: 해외 거래소 이름
         """
         try:
             with self._get_db_cursor() as cursor:
@@ -160,10 +166,12 @@ class ExchangeManager:
                     FROM positions
                     WHERE user_id = %s 
                     AND coin_symbol = %s 
+                    AND kr_exchange = %s
+                    AND fr_exchange = %s
                     AND status = 'CLOSED'
                     ORDER BY entry_time DESC 
                     LIMIT 1
-                    """, (user_id, coin_symbol)
+                    """, (user_id, coin_symbol, kr_exchange, fr_exchange)
                 )
                 closed_row = cursor.fetchone()
                 if closed_row:
@@ -180,10 +188,12 @@ class ExchangeManager:
                         FROM positions
                         WHERE user_id = %s 
                         AND coin_symbol = %s 
+                        AND kr_exchange = %s
+                        AND fr_exchange = %s
                         AND entry_time > %s 
                         AND status = 'OPEN'
                         ORDER BY entry_time ASC
-                        """, (user_id, coin_symbol, closed_entry_time)
+                        """, (user_id, coin_symbol, kr_exchange, fr_exchange, closed_entry_time)
                     )
                 else:
                     # CLOSED 포지션이 없으면 모든 OPEN 포지션 조회
@@ -198,9 +208,11 @@ class ExchangeManager:
                         FROM positions
                         WHERE user_id = %s 
                         AND coin_symbol = %s 
+                        AND kr_exchange = %s
+                        AND fr_exchange = %s
                         AND status = 'OPEN'
                         ORDER BY entry_time ASC
-                        """, (user_id, coin_symbol)
+                        """, (user_id, coin_symbol, kr_exchange, fr_exchange)
                     )
                 rows = cursor.fetchall()
                 if not rows:

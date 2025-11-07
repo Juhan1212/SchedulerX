@@ -351,7 +351,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             fr_avg_exit_price = Decimal(str(fr_order_details.get('avgExitPrice', 0)))
             fr_entry_fee = Decimal(str(fr_order_details.get('openFee', 0.0)))
             fr_entry_price = Decimal(str(fr_order_details.get('avgExitPrice', 0)))
-            fr_slippage = abs((Decimal(str(fr_order_details.get('avgExitPrice', 0))) - Decimal(str(fr_order_details.get('orderPrice', 0))))) / Decimal(str(fr_order_details.get('orderPrice', 1))) * Decimal('100')
 
             # 한국거래소 종료(매도) 금액 (KRW)
             kr_order_volume = Decimal(str(kr_order_details.get('executed_volume')))
@@ -423,7 +422,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'profit': float(profit),
                 'profit_rate': float(profit_rate),
                 'usdt_price': float(usdt_price),
-                'fr_slippage': float(fr_slippage)
             }
             exMgr.insert_positions(user['id'], **position_data)
             message += f'''
@@ -436,7 +434,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             📊 종료환율 : {exit_rate}
             💰 테더 가격 : {usdt_price}
             💰 수수료 : {total_fee}₩
-            📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
             💵 수익 : {round(profit,2)}₩
             📈 수익률 : {round(profit_rate,2)}%
             ═══════════════════════
@@ -835,7 +832,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             fr_entry_price = Decimal(str(fr_order_result.get('lastPriceOnCreated', 0)))
             fr_order_price = Decimal(str(fr_order_result.get('price', 0)))
             fr_entry_fee = fr_order_result.get('cumExecFee', 0.0)
-            fr_slippage = abs((Decimal(str(fr_order_result.get('avgPrice', 0))) - fr_entry_price)) / fr_entry_price * Decimal('100')
             
             # 주문환율 구하기
             order_rate = (kr_order_funds / fr_order_funds).quantize(Decimal('0.01'), rounding=ROUND_DOWN) if fr_order_funds else None
@@ -873,7 +869,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 'fr_volume': float(fr_order_volume),
                 'fr_funds': float(fr_order_funds),
                 'fr_fee': float(fr_entry_fee),
-                'fr_slippage': float(fr_slippage),
                 'entry_rate': float(order_rate) if order_rate is not None else 0.0,
                 'usdt_price': float(usdt_price)
             }
@@ -888,7 +883,6 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             💰 한국 체결금액 : {kr_order_funds}₩
             🌍 해외거래소 : {foreign_ex}
             📊 해외 체결량 : {fr_order_volume}
-            📉 해외거래소 슬리피지 : {round(fr_slippage,2)}%
             💰 주문 체결금액 : {fr_order_funds}$
             ⚡ 레버리지 : {leverage}x
             ═══════════════════════

@@ -626,22 +626,30 @@ class BybitExchange(ForeignExchange):
         tickers = await self.get_tickers()  # [('BTC', 'BTC'), ...]
         # Bybit은 네트워크 정보가 chain으로 제공됨
         coin_list = [ticker for ticker, _ in tickers]
-        print("XRP" in coin_list)
         # 입출금 정보 전체 조회
         coin_infos = await self.get_depo_with_pos_tickers()
-        print("XRP" in [info['coin'] for info in coin_infos])
         result = []
         for ticker, display_name in tickers:
             # 여러 체인 중 대표 체인(chainType==ticker) 우선
             chains = [info for info in coin_infos if info['coin'] == ticker]
-            for chain in chains:
+            if not chains:
+                # coin_infos에 해당 ticker가 없는 경우 (linear 코인 등)
                 result.append({
                     'ticker': ticker,
                     'display_name': display_name,
-                    'net_type': chain.get('chain'),
-                    'deposit_yn': chain.get('deposit_yn'),
-                    'withdraw_yn': chain.get('withdraw_yn'),
+                    'net_type': 'unknown',
+                    'deposit_yn': False,
+                    'withdraw_yn': False,
                 })
+            else:
+                for chain in chains:
+                    result.append({
+                        'ticker': ticker,
+                        'display_name': display_name,
+                        'net_type': chain.get('chain'),
+                        'deposit_yn': chain.get('deposit_yn'),
+                        'withdraw_yn': chain.get('withdraw_yn'),
+                    })
         return result
     
     async def set_leverage(self, ticker: str, leverage: str) -> dict:

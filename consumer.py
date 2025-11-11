@@ -189,6 +189,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 entry_position_flag = False
                 exit_position_flag = False
 
+        positionDB = None
         # 커스텀 모드인 경우, 목표환율 도달했는지 확인
         if trade_mode == 'custom':
             if current_entry_ex_rate <= float(entry_rate):
@@ -212,41 +213,43 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
 
         # 포지션 종료
         if exit_position_flag:
-            # 포지션 종료전 검증 : 우리 서비스 주문내역DB와 실제 거래소 포지션 비교
-            positionReal = await foreign_ex_cls.get_position_info(item['name'])
-            position = list(filter(lambda x: float(x.get('size', 0)) > 0, positionReal.get('list', [])))
+            # 속도를 위해 주석처리
+            # # 포지션 종료전 검증 : 우리 서비스 주문내역DB와 실제 거래소 포지션 비교
+            # positionReal = await foreign_ex_cls.get_position_info(item['name'])
+            # position = list(filter(lambda x: float(x.get('size', 0)) > 0, positionReal.get('list', [])))
 
-            # 검증 1. 실제 거래소 포지션이 없으면 skip
-            if len(position) == 0:
-                logger.info(f'''
-                                유저 : {user['email']}
-                                한국거래소 : {korean_ex}
-                                해외거래소 : {foreign_ex}
-                                티커 : {item['name']}
-                                현재환율 : {round(current_exit_ex_rate,2)}
-                                테더가격 : {usdt_price}
-                                Karbit 주문내역 존재 : o
-                                실제 거래소 포지션 : x
-                            ''')
+            # # 검증 1. 실제 거래소 포지션이 없으면 skip
+            # if len(position) == 0:
+            #     logger.info(f'''
+            #                     유저 : {user['email']}
+            #                     한국거래소 : {korean_ex}
+            #                     해외거래소 : {foreign_ex}
+            #                     티커 : {item['name']}
+            #                     현재환율 : {round(current_exit_ex_rate,2)}
+            #                     테더가격 : {usdt_price}
+            #                     Karbit 주문내역 존재 : o
+            #                     실제 거래소 포지션 : x
+            #                 ''')
         
         
-                if telegram_notifications_enabled and telegram_chat_id:
-                    telegram_message = f'''
-                    ⚠️ 포지션 불일치
-                    ┌─────────────────────
-                    │ 👤 유저 : {telegram_username}
-                    │ 🌍 한국거래소 : {korean_ex}
-                    │ 🌍 해외거래소 : {foreign_ex}
-                    │ 🪙 티커 : {item['name']}
-                    │ 📋 Karbit 자동매매 포지션 종료 실패
-                    │ 🔍 사유 : 실제 거래소에 현재 포지션이 존재 x
-                    └─────────────────────
-                    '''
-                    await send_telegram(telegram_chat_id, telegram_message)
-                return
+            #     if telegram_notifications_enabled and telegram_chat_id:
+            #         telegram_message = f'''
+            #         ⚠️ 포지션 불일치
+            #         ┌─────────────────────
+            #         │ 👤 유저 : {telegram_username}
+            #         │ 🌍 한국거래소 : {korean_ex}
+            #         │ 🌍 해외거래소 : {foreign_ex}
+            #         │ 🪙 티커 : {item['name']}
+            #         │ 📋 Karbit 자동매매 포지션 종료 실패
+            #         │ 🔍 사유 : 실제 거래소에 현재 포지션이 존재 x
+            #         └─────────────────────
+            #         '''
+            #         await send_telegram(telegram_chat_id, telegram_message)
+            #     return
             
-            # 검증 및 정산을 위해 포지션 정보 조회
-            positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'], korean_ex.upper(), foreign_ex.upper())
+            # 검증 및 정산을 위해 포지션 정보 조회 (이미 조회한 경우 재사용)
+            if not positionDB:
+                positionDB = exMgr.get_user_positions_for_settlement(user['id'], item['name'], korean_ex.upper(), foreign_ex.upper())
             
             if not positionDB:
                 logger.error(f"포지션 정보 조회 실패 - user_id: {user['email']}, ticker: {item['name']}")

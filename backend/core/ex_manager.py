@@ -356,8 +356,6 @@ class ExchangeManager:
                         from exchanges ForeignEx, coins_exchanges ForeignCoin
                         where ForeignEx.type = 'Overseas'
                         and ForeignEx.id = ForeignCoin.exchange_id
-                        and ForeignCoin.deposit_yn = true
-                        and ForeignCoin.withdraw_yn = true
                     ) T2
                     where T1.coin_symbol = T2.coin_symbol
                 """

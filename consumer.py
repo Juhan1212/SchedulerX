@@ -357,18 +357,39 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             fr_entry_price = Decimal(str(fr_order_details.get('avgExitPrice', 0)))
 
             # 한국거래소 종료(매도) 금액 (KRW)
-            kr_order_volume = Decimal(str(kr_order_details.get('executed_volume')))
-            kr_order_funds = Decimal(str(kr_order_details.get('price', 0)))
-            executed_volume = Decimal(str(kr_order_details.get('executed_volume', 0)))
-            if executed_volume > 0:
-                kr_entry_price = (kr_order_funds / executed_volume).quantize(Decimal('0.00000000'))
+            kr_trades = kr_order_details.get('trades', [])
+            if not kr_trades:
+                logger.error(f"한국거래소 trades 정보가 없습니다 - user: {user['email']}, order_id: {kr_order_id}")
+                return
+
+            # trades 배열을 순회하며 총 체결금액과 총 체결수량 계산
+            total_kr_funds = Decimal('0')
+            total_kr_volume = Decimal('0')
+
+            for trade in kr_trades:
+                trade_funds = Decimal(str(trade.get('funds', 0)))
+                trade_volume = Decimal(str(trade.get('volume', 0)))
+                total_kr_funds += trade_funds
+                total_kr_volume += trade_volume
+
+            # 실제 평균 체결가 계산
+            if total_kr_volume > 0:
+                kr_avg_exit_price = (total_kr_funds / total_kr_volume).quantize(Decimal('0.00000000'))
             else:
-                kr_entry_price = Decimal('0.00000000')
+                logger.error(f"한국거래소 체결 수량이 0입니다 - user: {user['email']}, order_id: {kr_order_id}")
+                return
+
+            kr_order_volume = total_kr_volume
+            kr_order_funds = total_kr_funds
+            kr_entry_price = kr_avg_exit_price
             kr_entry_fee = Decimal(str(kr_order_details.get('paid_fee', 0.0)))
-            kr_avg_exit_price = kr_order_funds / executed_volume 
 
             # 실제 종료 환율
-            exit_rate = (kr_avg_exit_price / fr_avg_exit_price).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+            if fr_avg_exit_price > 0 and kr_avg_exit_price > 0:
+                exit_rate = (kr_avg_exit_price / fr_avg_exit_price).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+            else:
+                logger.error(f"환율 계산 불가 - kr_avg_exit_price: {kr_avg_exit_price}, fr_avg_exit_price: {fr_avg_exit_price}")
+                return
             
             avg_entry_rate = positionDB.get('avg_entry_rate', 0)
             total_kr_funds = Decimal(str(positionDB.get('total_kr_funds', 0)))

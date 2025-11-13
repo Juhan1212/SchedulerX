@@ -151,6 +151,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         entry_rate = user['entry_rate']
         exit_rate = user['exit_rate']
         total_entry_count = user['total_entry_count']
+        total_self_entry_count = user.get('total_self_entry_count', 0)
         total_order_amount = user['total_order_amount']
         allow_average_down = user.get('allow_average_down', False)
         allow_average_up = user.get('allow_average_up', False)
@@ -421,7 +422,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                         ''')
             exMgr.update_strategies(user['id'], entry_count=entry_count-1)
             # 누적주문횟수, 누적주문금액 갱신
-            exMgr.update_users(user['id'], total_entry_count=total_entry_count+1, total_order_amount=total_order_amount+int(total_kr_funds))
+            exMgr.update_users(user['id'], total_entry_count=total_entry_count+1, total_self_entry_count=total_self_entry_count+1, total_order_amount=total_order_amount+int(total_kr_funds))
             
             # 포지션 정보 저장
             position_data = {
@@ -874,7 +875,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                             
             exMgr.update_strategies(user['id'], entry_count=entry_count+1)
             # 누적주문횟수, 누적주문금액 갱신
-            exMgr.update_users(user['id'], total_entry_count=total_entry_count+1, total_order_amount=total_order_amount+int(kr_order_funds))
+            exMgr.update_users(user['id'], total_entry_count=total_entry_count+1, total_self_entry_count=total_self_entry_count+1, total_order_amount=total_order_amount+int(kr_order_funds))
             # 포지션 데이터 저장
             position_data = {
                 'strategy_id': user['active_strategy_id'],

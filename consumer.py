@@ -479,13 +479,16 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             🪙 티커 : {item['name']}
             📊 포착환율 : {round(current_entry_ex_rate,2)}
             💰 테더가격 : {usdt_price}
+            📊 현재 진입 횟수 : {entry_count}
             ═══════════════════════
             '''
 
             # 포지션 진입전 검증
             # 검증 0. 포지션 누적진입 횟수와 시드 분할 횟수 비교
             if seed_division <= entry_count:
-                return message
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
 
             # 잔액 동시조회 ~ 한쪽만 잔액이 부족해서 한쪽만 들어가는 불상사를 막기위해서
             kr_balance, fr_balance = await get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls)

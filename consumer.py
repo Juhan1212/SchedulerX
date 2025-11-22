@@ -128,11 +128,54 @@ async def get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls):
         foreign_ex_cls.get_available_balance()
     )
 
-async def fetch_order_details(foreign_ex_cls, korean_ex_cls, symbol, kr_order_id):
-    fr_order_details, kr_order_details = await asyncio.gather(
-        foreign_ex_cls.get_position_closed_pnl(symbol),
-        korean_ex_cls.get_order(kr_order_id)
-    )
+async def fetch_order_details(foreign_ex_cls, korean_ex_cls, symbol, kr_order_id, max_retries=5, retry_delay=1.0):
+    """
+    주문 상세 내역을 조회합니다. 정확한 데이터를 받을 때까지 재시도합니다.
+    
+    Args:
+        foreign_ex_cls: 해외 거래소 클래스
+        korean_ex_cls: 한국 거래소 클래스
+        symbol: 코인 심볼
+        kr_order_id: 한국 거래소 주문 ID
+        max_retries: 최대 재시도 횟수 (기본값: 5)
+        retry_delay: 재시도 간격(초) (기본값: 1.0)
+    
+    Returns:
+        tuple: (fr_order_details, kr_order_details)
+    """
+    fr_order_details = None
+    kr_order_details = None
+    
+    for attempt in range(max_retries):
+        fr_order_details, kr_order_details = await asyncio.gather(
+            foreign_ex_cls.get_position_closed_pnl(symbol),
+            korean_ex_cls.get_order(kr_order_id)
+        )
+        
+        # 해외 거래소 데이터 검증
+        fr_list = fr_order_details.get('list', [])
+        fr_data_valid = len(fr_list) > 0 and fr_list[0].get('closedPnl') is not None
+        
+        # 한국 거래소 데이터 검증
+        kr_trades = kr_order_details.get('trades', [])
+        kr_data_valid = (
+            kr_order_details.get('state') == 'done' and 
+            len(kr_trades) > 0 and
+            float(kr_order_details.get('executed_volume', 0)) > 0
+        )
+        
+        # 둘 다 유효한 데이터를 받았으면 반환
+        if fr_data_valid and kr_data_valid:
+            logger.info(f"주문 상세 조회 성공 (시도 {attempt + 1}/{max_retries})")
+            return fr_order_details, kr_order_details
+        
+        # 마지막 시도가 아니면 재시도
+        if attempt < max_retries - 1:
+            logger.warning(f"주문 상세 조회 재시도 {attempt + 1}/{max_retries} - fr_valid: {fr_data_valid}, kr_valid: {kr_data_valid}")
+            await asyncio.sleep(retry_delay)
+    
+    # 최대 재시도 후에도 실패하면 마지막 조회 결과 반환
+    logger.error(f"주문 상세 조회 최대 재시도 초과 ({max_retries}회) - 마지막 조회 결과 반환")
     return fr_order_details, kr_order_details
 
 async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, foreign_ex, usdt_price):
@@ -339,22 +382,33 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 logger.error(f"포지션 종료 주문 실패 - kr_order_id: {kr_order_id}")
                 return
             
-            # 주문 체결 대기
-            await asyncio.sleep(0.5)
-            # 실제 종료 주문 내역 조회
-            fr_order_details, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, item['name'], kr_order_id)
+            # 실제 종료 주문 내역 조회 (재시도 로직 포함)
+            fr_order_details_raw, kr_order_details = await fetch_order_details(foreign_ex_cls, korean_ex_cls, item['name'], kr_order_id)
             
-            logger.info(f"해외거래소 종료 주문 상세: {json.dumps(fr_order_details, indent=2)}")
+            logger.info(f"해외거래소 종료 주문 상세: {json.dumps(fr_order_details_raw, indent=2)}")
             logger.info(f"한국거래소 종료 주문 상세: {json.dumps(kr_order_details, indent=2)}")
+
+            # 해외거래소 응답 데이터 검증 및 추출
+            fr_list = fr_order_details_raw.get('list', []) if fr_order_details_raw else []
+            if not fr_list or len(fr_list) == 0:
+                logger.error(f"해외거래소 종료 주문 상세 조회 실패 - 빈 list 반환")
+                return
+            
+            fr_order_details = fr_list[0]  # list의 첫 번째 요소가 실제 주문 데이터
+            
+            # 한국거래소 응답 데이터 검증
+            if not kr_order_details:
+                logger.error(f"한국거래소 종료 주문 상세 조회 실패 - user: {user['email']}, order_id: {kr_order_id}")
+                return
 
             # 실제 종료 환율 계산
             # 해외거래소 종료(청산) 금액 (USDT)
             fr_order_volume = Decimal(str(fr_order_details.get('qty', 0)))
-            fr_order_funds = Decimal(str(fr_order_details.get('cumEntryValue', 0)))
+            fr_order_funds = Decimal(str(positionDB.get('total_fr_funds', 0))) + Decimal(str(fr_order_details.get('closedPnl', 0)))
             fr_pnl = Decimal(str(fr_order_details.get('closedPnl', 0)))
             fr_total_fee = Decimal(str(fr_order_details.get('openFee', 0.0))) + Decimal(str(fr_order_details.get('closeFee', 0.0)))
             fr_avg_exit_price = Decimal(str(fr_order_details.get('avgExitPrice', 0)))
-            fr_entry_fee = Decimal(str(fr_order_details.get('openFee', 0.0)))
+            fr_entry_fee = Decimal(str(fr_order_details.get('closeFee', 0.0)))
             fr_entry_price = Decimal(str(fr_order_details.get('avgExitPrice', 0)))
 
             # 한국거래소 종료(매도) 금액 (KRW)
@@ -405,11 +459,11 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
             
             # profit, profitRate 계산
             kr_profit = kr_order_funds - total_kr_funds - (total_kr_fee + kr_entry_fee)
-            fr_profit = fr_pnl - (fr_total_fee)
+            fr_profit = fr_pnl
             
             # 원화 환산
             profit = kr_profit + (fr_profit * Decimal(str(usdt_price)))
-            profit_rate = (profit / total_invested * Decimal('100')) if total_invested > 0 else Decimal('0')
+            profit_rate = (profit / (total_invested / 2) * Decimal('100')) if total_invested > 0 else Decimal('0')
 
             logger.info(f'''
                             유저 : {user['email']}
@@ -489,6 +543,34 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
                 if telegram_notifications_enabled and telegram_chat_id:
                     await send_telegram(telegram_chat_id, message)
                 return
+            
+            # 진입환율과 종료환율 슬리피지 비교하여 0.5% 이상 차이나면 진입 취소
+            rate_difference = abs(current_exit_ex_rate - current_entry_ex_rate)
+            rate_difference_percent = (rate_difference / current_entry_ex_rate) * 100
+            if rate_difference_percent > 0.5:
+                logger.info(f'''
+                                진입 환율과 종료 환율 슬리피지 차이로 포지션 진입 취소
+                                유저 : {user['email']}
+                                티커 : {item['name']}
+                                진입 환율 : {current_entry_ex_rate}
+                                종료 환율 : {current_exit_ex_rate}
+                                변동률 : {rate_difference_percent:.2f}%
+                            ''')
+                message += f'''
+                ⚠️ 포지션 진입 취소
+                ┌─────────────────────
+                │ 👤 유저 : {telegram_username}
+                │ 🪙 티커 : {item['name']}
+                │ ❗ 사유 : 환율 변동폭 초과
+                │ 📊 진입 환율 : {current_entry_ex_rate}
+                │ 📊 종료 환율 : {current_exit_ex_rate}
+                │ 📈 변동률 : {rate_difference_percent:.2f}%
+                └─────────────────────
+                '''
+                if telegram_notifications_enabled and telegram_chat_id:
+                    await send_telegram(telegram_chat_id, message)
+                return
+            
 
             # 잔액 동시조회 ~ 한쪽만 잔액이 부족해서 한쪽만 들어가는 불상사를 막기위해서
             kr_balance, fr_balance = await get_both_ex_available_balance(korean_ex_cls, foreign_ex_cls)

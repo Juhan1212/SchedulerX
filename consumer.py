@@ -222,7 +222,7 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         current_exit_ex_rate = ex_rate_info['exit_ex_rate']
         
         # 종료환율이 테더가격보다 4%이상 높으면, 텔레그램 알림을 보내자
-        if current_exit_ex_rate >= usdt_price * 1.04:
+        if current_exit_ex_rate >= usdt_price * 1.04 and current_entry_ex_rate >= usdt_price * 1.04:
             message += f'''
             ⚠️ 김프 경고
             ┌─────────────────────

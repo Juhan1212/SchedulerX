@@ -220,6 +220,23 @@ async def process_user(user, item, korean_ex_cls, foreign_ex_cls, korean_ex, for
         
         current_entry_ex_rate = ex_rate_info['entry_ex_rate']
         current_exit_ex_rate = ex_rate_info['exit_ex_rate']
+        
+        # 종료환율이 테더가격보다 4%이상 높으면, 텔레그램 알림을 보내자
+        if current_exit_ex_rate >= usdt_price * 1.04:
+            message += f'''
+            ⚠️ 김프 경고
+            ┌─────────────────────
+            │ 👤 유저 : {telegram_username}
+            │ 🌍 한국거래소 : {korean_ex}
+            │ 🌍 해외거래소 : {foreign_ex}
+            │ 🪙 티커 : {item['name']}
+            │ 📊 진입환율 : {current_entry_ex_rate}
+            │ 📊 종료환율 : {current_exit_ex_rate}
+            │ 📊 테더가격 : {usdt_price}
+            └─────────────────────
+            '''
+            if telegram_notifications_enabled and telegram_chat_id:
+                await send_telegram(telegram_chat_id, message)
 
         # 방어로직 - 호가창 모두 소진되어도 주문금액이 남는 경우 제대로된 환율 계산 불가
         if current_entry_ex_rate is None or current_exit_ex_rate is None:
